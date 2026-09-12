@@ -39,20 +39,15 @@ export default function RedefinirSenhaPage() {
     })
   }, [router, supabase])
 
-  function validarSenha(s: string): string | null {
-    if (s.length < 8) return 'A senha deve ter pelo menos 8 caracteres'
-    if (!/[A-Z]/.test(s)) return 'A senha deve ter pelo menos 1 letra maiúscula'
-    if (!/[a-z]/.test(s)) return 'A senha deve ter pelo menos 1 letra minúscula'
-    if (!/[0-9]/.test(s)) return 'A senha deve ter pelo menos 1 número'
+  function validarSenha(_s: string): string | null {
     return null
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    const erro = validarSenha(senha)
-    if (erro) {
-      toast({ title: 'Senha inválida', description: erro, variant: 'destructive' })
+    if (!senha) {
+      toast({ title: 'Informe uma senha', variant: 'destructive' })
       return
     }
 
@@ -132,15 +127,12 @@ export default function RedefinirSenhaPage() {
                   <Input
                     id="senha"
                     type="password"
-                    placeholder="Mínimo 8 caracteres"
+                    placeholder="Sua nova senha"
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
                     required
                     autoComplete="new-password"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Mínimo 8 caracteres, com letras maiúsculas, minúsculas e números.
-                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmar">Confirmar senha</Label>

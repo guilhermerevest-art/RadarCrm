@@ -42,11 +42,7 @@ export default function SignupPage() {
   const { toast } = useToast()
   const supabase = createClient()
 
-  function validarSenha(s: string): string | null {
-    if (s.length < 8) return 'A senha deve ter pelo menos 8 caracteres'
-    if (!/[A-Z]/.test(s)) return 'A senha deve ter pelo menos 1 letra maiúscula'
-    if (!/[a-z]/.test(s)) return 'A senha deve ter pelo menos 1 letra minúscula'
-    if (!/[0-9]/.test(s)) return 'A senha deve ter pelo menos 1 número'
+  function validarSenha(_s: string): string | null {
     return null
   }
 
@@ -57,9 +53,8 @@ export default function SignupPage() {
       return
     }
 
-    const senhaErro = validarSenha(senha)
-    if (senhaErro) {
-      toast({ title: 'Senha inválida', description: senhaErro, variant: 'destructive' })
+    if (!senha) {
+      toast({ title: 'Informe uma senha', variant: 'destructive' })
       return
     }
 
@@ -186,17 +181,6 @@ export default function SignupPage() {
     'Patos de Minas', 'Patrocínio', 'Frutal', 'Ribeirão Preto',
   ]
 
-  // Calcula força da senha
-  function senhaForca(s: string): { label: string; cor: string; width: string } {
-    if (s.length === 0) return { label: '', cor: 'bg-gray-200', width: 'w-0' }
-    if (s.length < 6) return { label: 'Fraca', cor: 'bg-red-500', width: 'w-1/4' }
-    if (s.length < 8) return { label: 'Razoável', cor: 'bg-yellow-500', width: 'w-2/4' }
-    if (validarSenha(s) === null) return { label: 'Forte', cor: 'bg-green-500', width: 'w-full' }
-    return { label: 'Média', cor: 'bg-yellow-500', width: 'w-3/4' }
-  }
-
-  const forca = senhaForca(senha)
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
       <div className="absolute inset-0 -z-10">
@@ -299,23 +283,12 @@ export default function SignupPage() {
                     <Input
                       id="senha"
                       type="password"
-                      placeholder="Mínimo 8 caracteres"
+                      placeholder="Sua senha"
                       value={senha}
                       onChange={(e) => setSenha(e.target.value)}
                       required
                       autoComplete="new-password"
-                      minLength={8}
                     />
-                    {senha && (
-                      <div className="space-y-1">
-                        <div className="h-1 w-full bg-gray-200 rounded-full overflow-hidden">
-                          <div className={`h-full ${forca.cor} ${forca.width} transition-all`} />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Força: <span className="font-medium">{forca.label}</span>
-                        </p>
-                      </div>
-                    )}
                   </div>
 
                   <div className="space-y-2">
