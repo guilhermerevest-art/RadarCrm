@@ -9,13 +9,13 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
-import { Mail, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react'
+import { Mail, ArrowLeft, Loader2, CheckCircle2, Lock } from 'lucide-react'
 
 const PASSOS = [
   {
     numero: 1,
     titulo: 'Criar conta',
-    desc: 'Google ou e-mail',
+    desc: 'E-mail e senha',
   },
   {
     numero: 2,
@@ -33,12 +33,75 @@ export default function SignupPage() {
   const [passo, setPasso] = useState(1)
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
+  const [confirmarSenha, setConfirmarSenha] = useState('')
   const [nome, setNome] = useState('')
   const [empresa, setEmpresa] = useState('')
   const [cidades, setCidades] = useState<string[]>([])
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
+
+  function validarSenha(s: string): string | null {
+    if (s.length < 8) return 'A senha deve ter pelo menos 8 caracteres'
+    if (!/[A-Z]/.test(s)) return 'A senha deve ter pelo menos 1 letra maiúscula'
+    if (!/[a-z]/.test(s)) return 'A senha deve ter pelo menos 1 letra minúscula'
+    if (!/[0-9]/.test(s)) return 'A senha deve ter pelo menos 1 número'
+    return null
+  }
+
+  async function handleCriarConta(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email) {
+      toast({ title: 'Informe seu e-mail', variant: 'destructive' })
+      return
+    }
+
+    const senhaErro = validarSenha(senha)
+    if (senhaErro) {
+      toast({ title: 'Senha inválida', description: senhaErro, variant: 'destructive' })
+      return
+    }
+
+    if (senha !== confirmarSenha) {
+      toast({ title: 'As senhas não conferem', variant: 'destructive' })
+      return
+    }
+
+    setLoading(true)
+
+    // Cria conta com email/senha
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: senha,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          nome: nome || email.split('@')[0],
+        },
+      },
+    })
+
+    if (error) {
+      toast({ title: 'Erro ao criar conta', description: error.message, variant: 'destructive' })
+      setLoading(false)
+      return
+    }
+
+    // Verifica se precisa confirmar email
+    if (data.user && !data.session) {
+      toast({
+        title: 'Conta criada!',
+        description: 'Verifique seu e-mail para confirmar o cadastro.',
+      })
+      setLoading(false)
+      return
+    }
+
+    // Se já tem sessão (email confirmado automaticamente), segue para o passo 2
+    setPasso(2)
+    setLoading(false)
+  }
 
   async function handleGoogle() {
     setLoading(true)
@@ -50,23 +113,6 @@ export default function SignupPage() {
     })
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' })
-      setLoading(false)
-    }
-  }
-
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email) return
-    setLoading(true)
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    })
-    if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' })
-      setLoading(false)
-    } else {
-      setPasso(2)
       setLoading(false)
     }
   }
@@ -91,14 +137,15 @@ export default function SignupPage() {
 
       const slug = `${empresa.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString(36)}`
 
-      const { data, error } = await supabase.rpc('fn_tenant_criar', {
+      // Tenta criar via RPC primeiro
+      const { error: rpcError } = await supabase.rpc('fn_tenant_criar', {
         p_user_id: user.id,
         p_nome: empresa,
         p_slug: slug,
       })
 
-      if (error) {
-        // Se a função não existir, cria via API direta
+      if (rpcError) {
+        // Fallback: cria via insert direto
         const { error: tenantError } = await supabase.from('tenants').insert({
           nome: empresa,
           slug,
@@ -110,9 +157,15 @@ export default function SignupPage() {
         })
 
         if (tenantError) {
-          // Tenant pode já existir do Google OAuth
           console.log('Tenant creation:', tenantError.message)
         }
+
+        // Associa usuário ao tenant
+        await supabase.from('tenant_users').insert({
+          tenant_id: (await supabase.from('tenants').select('id').eq('slug', slug).single()).data?.id,
+          user_id: user.id,
+          role: 'owner',
+        })
       }
 
       router.push('/dashboard')
@@ -132,6 +185,17 @@ export default function SignupPage() {
     'Uberlândia', 'Uberaba', 'Araguari', 'Ituiutaba',
     'Patos de Minas', 'Patrocínio', 'Frutal', 'Ribeirão Preto',
   ]
+
+  // Calcula força da senha
+  function senhaForca(s: string): { label: string; cor: string; width: string } {
+    if (s.length === 0) return { label: '', cor: 'bg-gray-200', width: 'w-0' }
+    if (s.length < 6) return { label: 'Fraca', cor: 'bg-red-500', width: 'w-1/4' }
+    if (s.length < 8) return { label: 'Razoável', cor: 'bg-yellow-500', width: 'w-2/4' }
+    if (validarSenha(s) === null) return { label: 'Forte', cor: 'bg-green-500', width: 'w-full' }
+    return { label: 'Média', cor: 'bg-yellow-500', width: 'w-3/4' }
+  }
+
+  const forca = senhaForca(senha)
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
@@ -216,7 +280,7 @@ export default function SignupPage() {
                   </div>
                 </div>
 
-                <form onSubmit={handleMagicLink} className="space-y-4">
+                <form onSubmit={handleCriarConta} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">E-mail</Label>
                     <Input
@@ -226,16 +290,68 @@ export default function SignupPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      autoComplete="email"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="senha">Senha</Label>
+                    <Input
+                      id="senha"
+                      type="password"
+                      placeholder="Mínimo 8 caracteres"
+                      value={senha}
+                      onChange={(e) => setSenha(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                      minLength={8}
+                    />
+                    {senha && (
+                      <div className="space-y-1">
+                        <div className="h-1 w-full bg-gray-200 rounded-full overflow-hidden">
+                          <div className={`h-full ${forca.cor} ${forca.width} transition-all`} />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Força: <span className="font-medium">{forca.label}</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmar">Confirmar senha</Label>
+                    <Input
+                      id="confirmar"
+                      type="password"
+                      placeholder="Digite a senha novamente"
+                      value={confirmarSenha}
+                      onChange={(e) => setConfirmarSenha(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                    />
+                    {confirmarSenha && senha !== confirmarSenha && (
+                      <p className="text-xs text-red-500">As senhas não conferem</p>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Ao criar a conta, você concorda com nossos{' '}
+                    <Link href="/termos" className="text-primary hover:underline">Termos</Link>
+                    {' '}e{' '}
+                    <Link href="/privacidade" className="text-primary hover:underline">Política de Privacidade</Link>.
+                  </p>
+
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Enviando link...
+                        Criando conta...
                       </>
                     ) : (
-                      'Receber link por e-mail'
+                      <>
+                        <Lock className="mr-2 h-4 w-4" />
+                        Criar conta
+                      </>
                     )}
                   </Button>
                 </form>

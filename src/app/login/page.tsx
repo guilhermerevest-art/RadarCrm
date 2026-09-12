@@ -9,10 +9,14 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
-import { Mail, ArrowLeft, Loader2 } from 'lucide-react'
+import { Mail, ArrowLeft, Loader2, Lock } from 'lucide-react'
+
+type Modo = 'senha' | 'magic'
 
 function LoginForm() {
+  const [modo, setModo] = useState<Modo>('senha')
   const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const router = useRouter()
@@ -20,6 +24,30 @@ function LoginForm() {
   const redirect = searchParams.get('redirect') ?? '/dashboard'
   const { toast } = useToast()
   const supabase = createClient()
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email || !senha) return
+
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: senha,
+    })
+
+    if (error) {
+      toast({
+        title: 'Erro ao entrar',
+        description: error.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos' : error.message,
+        variant: 'destructive'
+      })
+      setLoading(false)
+      return
+    }
+
+    router.push(redirect)
+    router.refresh()
+  }
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault()
@@ -79,35 +107,115 @@ function LoginForm() {
             <Button
               variant="outline"
               className="mt-4 w-full"
-              onClick={() => setMagicLinkSent(false)}
+              onClick={() => {
+                setMagicLinkSent(false)
+                setModo('senha')
+              }}
             >
-              Usar outro e-mail
+              Voltar para login
             </Button>
           </div>
         ) : (
-          <form onSubmit={handleMagicLink} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com.br"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
+          <>
+            {/* Tabs para alternar entre senha e magic link */}
+            <div className="flex gap-1 p-1 bg-muted rounded-lg mb-4">
+              <button
+                type="button"
+                onClick={() => setModo('senha')}
+                className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
+                  modo === 'senha'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Lock className="inline h-3.5 w-3.5 mr-1.5" />
+                Senha
+              </button>
+              <button
+                type="button"
+                onClick={() => setModo('magic')}
+                className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
+                  modo === 'magic'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Mail className="inline h-3.5 w-3.5 mr-1.5" />
+                Magic link
+              </button>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                'Enviar link de acesso'
-              )}
-            </Button>
+
+            {modo === 'senha' ? (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com.br"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="senha">Senha</Label>
+                    <Link
+                      href="/recuperar-senha"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Esqueceu?
+                    </Link>
+                  </div>
+                  <Input
+                    id="senha"
+                    type="password"
+                    placeholder="Sua senha"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Entrando...
+                    </>
+                  ) : (
+                    'Entrar'
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleMagicLink} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email-magic">E-mail</Label>
+                  <Input
+                    id="email-magic"
+                    type="email"
+                    placeholder="seu@email.com.br"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    'Enviar link de acesso'
+                  )}
+                </Button>
+              </form>
+            )}
 
             <div className="relative my-4">
               <div className="absolute inset-0 flex items-center">
@@ -132,7 +240,7 @@ function LoginForm() {
               </svg>
               Continuar com Google
             </Button>
-          </form>
+          </>
         )}
       </CardContent>
     </Card>
