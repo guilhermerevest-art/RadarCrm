@@ -1,0 +1,90 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 200 14% 96%;
+    --foreground: 208 25% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 208 25% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 208 25% 10%;
+    --primary: 15 74% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 198 38% 37%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 200 14% 90%;
+    --muted-foreground: 208 10% 46%;
+    --accent: 198 38% 37%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 200 14% 88%;
+    --input: 200 14% 88%;
+    --ring: 15 74% 47%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 208 25% 10%;
+    --foreground: 200 14% 96%;
+    --card: 208 20% 14%;
+    --card-foreground: 200 14% 96%;
+    --popover: 208 20% 14%;
+    --popover-foreground: 200 14% 96%;
+    --primary: 15 74% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 198 38% 37%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 208 20% 20%;
+    --muted-foreground: 200 10% 60%;
+    --accent: 198 38% 37%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 208 20% 22%;
+    --input: 208 20% 22%;
+    --ring: 15 74% 47%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Barlow', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Barlow Condensed', system-ui, sans-serif;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Selection */
+::selection {
+  background: hsl(var(--primary) / 0.2);
+  color: hsl(var(--primary));
+}

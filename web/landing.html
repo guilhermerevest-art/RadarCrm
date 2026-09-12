@@ -1,0 +1,1018 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radarcanteiro — Encontre obras novas antes de todo mundo</title>
+<meta name="description" content="O radar que mostra obras novas na sua região, com CRM completo, propostas profissionais e WhatsApp automatizado. Para concreteiras, locadoras e fornecedores de material.">
+<meta property="og:title" content="Radarcanteiro — Radar de Obras + CRM">
+<meta property="og:description" content="Encontre obras novas antes de todo mundo. Proposta em 3 minutos. WhatsApp automatizado.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://radarcanteiro.com.br/og.png">
+<meta name="theme-color" content="#D9541F">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230F1B24'/%3E%3Cpath d='M16 6 L26 26 L6 26 Z' fill='%23D9541F'/%3E%3Ccircle cx='16' cy='22' r='3' fill='%230F1B24'/%3E%3C/svg%3E">
+<style>
+:root {
+  --base: #EEF1F2;
+  --papel: #FFFFFF;
+  --tinta: #0F1B24;
+  --pino: #D9541F;
+  --pino-escuro: #B8431A;
+  --agua: #2E6F8E;
+  --linha: #A9B4BA;
+  --suave: #5B6A73;
+  --ok: #1C7A4B;
+  --aviso: #D9A11F;
+  --erro: #C73E1D;
+  --sombra: 0 1px 3px rgba(15,27,36,.06), 0 4px 12px rgba(15,27,36,.08);
+  --sombra-forte: 0 4px 16px rgba(15,27,36,.12), 0 12px 32px rgba(15,27,36,.16);
+  --radius: 8px;
+  --radius-grande: 14px;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--base);
+  color: var(--tinta);
+  font-family: Barlow, system-ui, Arial, sans-serif;
+  font-size: 17.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--agua); text-decoration: none; }
+a:hover { text-decoration: underline; }
+img, svg { max-width: 100%; height: auto; display: block; }
+button { font-family: inherit; cursor: pointer; }
+
+h1, h2, h3, h4 {
+  font-family: "Barlow Condensed", Barlow, Arial, sans-serif;
+  line-height: 1.08;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: .005em;
+}
+h1 { font-size: clamp(48px, 9vw, 96px); text-transform: uppercase; }
+h2 { font-size: clamp(32px, 5vw, 52px); text-transform: uppercase; }
+h3 { font-size: 24px; text-transform: uppercase; letter-spacing: .02em; }
+h4 { font-family: Barlow, sans-serif; font-size: 18px; font-weight: 600; margin: 20px 0 6px; }
+
+p { margin: 0 0 14px; }
+
+.muted { color: var(--suave); }
+.kicker {
+  font-family: "Barlow Condensed";
+  font-size: 15px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--pino);
+  margin: 0 0 14px;
+  font-weight: 600;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 26px; }
+
+header.site {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: saturate(180%) blur(8px);
+  border-bottom: 1px solid var(--linha);
+}
+header.site .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 72px;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "Barlow Condensed";
+  font-weight: 700;
+  font-size: 22px;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--tinta);
+}
+.logo-mark {
+  width: 36px;
+  height: 36px;
+  background: var(--tinta);
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+}
+.logo-mark svg { width: 22px; height: 22px; }
+nav.menu { display: flex; gap: 28px; align-items: center; }
+nav.menu a {
+  color: var(--tinta);
+  font-weight: 500;
+  font-size: 15.5px;
+}
+nav.menu a:hover { color: var(--pino); text-decoration: none; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--pino);
+  color: #fff;
+  padding: 12px 22px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 15.5px;
+  border: none;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-family: "Barlow Condensed";
+  transition: background .15s, transform .1s;
+}
+.btn:hover { background: var(--pino-escuro); text-decoration: none; transform: translateY(-1px); }
+.btn-ghost {
+  background: transparent;
+  color: var(--tinta);
+  border: 2px solid var(--tinta);
+}
+.btn-ghost:hover { background: var(--tinta); color: #fff; }
+.btn-grande { padding: 18px 32px; font-size: 18px; }
+
+.hero {
+  background: var(--tinta);
+  color: #E6ECEE;
+  padding: 64px 0 80px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 60px;
+  align-items: center;
+}
+.hero .kicker { color: #FFA070; }
+.hero h1 {
+  color: #fff;
+  letter-spacing: -.005em;
+  margin: 0 0 18px;
+}
+.hero h1 .accent { color: var(--pino); }
+.hero .tag {
+  font-size: clamp(19px, 2.2vw, 23px);
+  color: #B9C7CD;
+  max-width: 36ch;
+  margin: 0 0 30px;
+  line-height: 1.42;
+}
+.hero-cta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.hero-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #93A6B0;
+  font-size: 14.5px;
+}
+.hero-mini svg { width: 16px; height: 16px; color: var(--pino); }
+
+.mapa-preview {
+  background: var(--tinta);
+  border-radius: var(--radius-grande);
+  border: 1px solid #1B2A34;
+  overflow: hidden;
+  box-shadow: var(--sombra-forte);
+}
+.mapa-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #15252F;
+  border-bottom: 1px solid #1B2A34;
+  font-size: 13.5px;
+  color: #93A6B0;
+}
+.mapa-toolbar .cidade { color: #fff; font-weight: 600; font-family: "Barlow Condensed"; text-transform: uppercase; letter-spacing: .04em; }
+.mapa-canvas {
+  position: relative;
+  aspect-ratio: 4/3;
+  background:
+    linear-gradient(rgba(15,27,36,.92), rgba(15,27,36,.92)),
+    repeating-linear-gradient(0deg, transparent 0 49px, #1B2A34 49px 50px),
+    repeating-linear-gradient(90deg, transparent 0 49px, #1B2A34 49px 50px);
+}
+.pino {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  cursor: pointer;
+}
+.pino svg { width: 28px; height: 36px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.4)); }
+.pino-tag {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateY(-22px);
+  background: #fff;
+  color: var(--tinta);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: var(--sombra);
+}
+.pino-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid var(--pino);
+  opacity: .55;
+  animation: pulse 2s ease-out infinite;
+}
+@keyframes pulse {
+  0% { transform: translate(-50%, -50%) scale(.6); opacity: .7; }
+  100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
+}
+.mapa-rodape {
+  padding: 12px 18px;
+  background: #15252F;
+  border-top: 1px solid #1B2A34;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #93A6B0;
+}
+.mapa-rodape strong { color: var(--pino); font-family: "Barlow Condensed"; font-size: 15px; }
+
+section { padding: 80px 0; }
+section.tema-escuro { background: var(--tinta); color: #E6ECEE; }
+section.tema-claro { background: var(--papel); }
+section + section { border-top: 1px solid var(--linha); }
+
+.secao-cabecalho {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 50px;
+}
+.secao-cabecalho p {
+  color: var(--suave);
+  font-size: 18px;
+  margin-top: 14px;
+}
+.tema-escuro .secao-cabecalho p { color: #93A6B0; }
+
+.figs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 2px solid var(--tinta);
+  border-bottom: 1px solid var(--linha);
+  margin: 26px 0 8px;
+}
+.figs div { padding: 24px 20px 28px 0; }
+.figs div + div { padding-left: 20px; border-left: 1px solid var(--linha); }
+.figs b {
+  display: block;
+  font-family: "Barlow Condensed";
+  font-size: clamp(36px, 4.4vw, 52px);
+  line-height: 1;
+  font-weight: 600;
+  color: var(--tinta);
+}
+.figs span {
+  font-size: 14.5px;
+  color: var(--suave);
+  display: block;
+  margin-top: 8px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+.card {
+  background: var(--papel);
+  border: 1px solid var(--linha);
+  border-radius: var(--radius-grande);
+  padding: 30px;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sombra);
+  border-color: var(--pino);
+}
+.card-icone {
+  width: 48px;
+  height: 48px;
+  background: rgba(217,84,31,.1);
+  color: var(--pino);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+}
+.card-icone svg { width: 24px; height: 24px; }
+.card h3 { margin: 0 0 10px; font-size: 22px; }
+.card p { margin: 0; color: var(--suave); font-size: 16px; }
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  background: var(--papel);
+  border-radius: var(--radius-grande);
+  border: 1px solid var(--linha);
+  overflow: hidden;
+}
+.step {
+  padding: 32px 26px;
+  border-left: 1px solid var(--linha);
+  position: relative;
+}
+.step:first-child { border-left: 0; }
+.step .n {
+  font-family: "Barlow Condensed";
+  font-size: 52px;
+  font-weight: 700;
+  color: var(--pino);
+  line-height: 1;
+  margin-bottom: 12px;
+}
+.step h3 { font-size: 20px; margin: 0 0 8px; }
+.step p { margin: 0; font-size: 15px; color: var(--suave); }
+
+.pitch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.pitch-card {
+  background: var(--papel);
+  border: 2px solid var(--tinta);
+  border-radius: var(--radius-grande);
+  padding: 28px;
+}
+.pitch-card header {
+  border-bottom: 1px solid var(--linha);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+.pitch-cargo {
+  font-family: "Barlow Condensed";
+  font-size: 14px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--suave);
+  margin-bottom: 6px;
+}
+.pitch-nome {
+  font-family: "Barlow Condensed";
+  font-size: 26px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--tinta);
+}
+.pitch-quote {
+  font-size: 16.5px;
+  font-style: italic;
+  color: var(--tinta);
+  border-left: 3px solid var(--pino);
+  padding-left: 14px;
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+.pitch-autor { font-size: 14px; color: var(--suave); }
+
+.precos {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.preco {
+  background: var(--papel);
+  border: 1px solid var(--linha);
+  border-radius: var(--radius-grande);
+  padding: 30px 24px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.preco-destaque {
+  border: 2px solid var(--pino);
+  transform: scale(1.03);
+  box-shadow: var(--sombra-forte);
+}
+.preco-destaque::before {
+  content: "MAIS VENDIDO";
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--pino);
+  color: #fff;
+  padding: 4px 14px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  font-family: "Barlow Condensed";
+}
+.preco-nome {
+  font-family: "Barlow Condensed";
+  font-size: 20px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--suave);
+  margin-bottom: 8px;
+}
+.preco-valor {
+  font-family: "Barlow Condensed";
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--tinta);
+  margin-bottom: 4px;
+}
+.preco-valor small { font-size: 16px; color: var(--suave); font-weight: 500; }
+.preco-desc {
+  font-size: 14px;
+  color: var(--suave);
+  margin-bottom: 22px;
+  min-height: 38px;
+}
+.preco ul { list-style: none; padding: 0; margin: 0 0 22px; }
+.preco li {
+  font-size: 14.5px;
+  padding: 6px 0 6px 24px;
+  position: relative;
+  border-bottom: 1px solid var(--base);
+  color: var(--tinta);
+}
+.preco li:last-child { border-bottom: 0; }
+.preco li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 11px;
+  width: 14px;
+  height: 14px;
+  background: var(--pino);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.preco-cta { margin-top: auto; }
+.preco-cta .btn { width: 100%; justify-content: center; }
+.preco-cta .btn-ghost { background: transparent; color: var(--tinta); border-color: var(--linha); }
+.preco-cta .btn-ghost:hover { background: var(--base); border-color: var(--tinta); color: var(--tinta); }
+
+.faq { max-width: 780px; margin: 0 auto; }
+.faq details {
+  background: var(--papel);
+  border: 1px solid var(--linha);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  padding: 20px 24px;
+  transition: border-color .15s;
+}
+.faq details[open] { border-color: var(--pino); }
+.faq summary {
+  font-weight: 600;
+  font-size: 17px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: "+";
+  font-family: "Barlow Condensed";
+  font-size: 28px;
+  color: var(--pino);
+  line-height: 1;
+  transition: transform .2s;
+}
+.faq details[open] summary::after { content: "-"; }
+.faq p {
+  margin: 14px 0 0;
+  color: var(--suave);
+  font-size: 16px;
+}
+
+.cta-final {
+  background: var(--tinta);
+  color: #E6ECEE;
+  text-align: center;
+  padding: 90px 0;
+}
+.cta-final h2 { color: #fff; margin-bottom: 16px; }
+.cta-final p { color: #B9C7CD; font-size: 19px; max-width: 56ch; margin: 0 auto 30px; }
+
+footer.site {
+  background: #07111A;
+  color: #93A6B0;
+  padding: 60px 0 40px;
+  font-size: 14.5px;
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 40px;
+  margin-bottom: 40px;
+}
+footer h4 {
+  color: #fff;
+  font-family: "Barlow Condensed";
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+footer ul { list-style: none; padding: 0; margin: 0; }
+footer li { margin-bottom: 8px; }
+footer a { color: #B9C7CD; }
+footer a:hover { color: var(--pino); }
+.footer-rodape {
+  border-top: 1px solid #15252F;
+  padding-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+@media (max-width: 980px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+  .cards, .pitch, .precos { grid-template-columns: repeat(2, 1fr); }
+  .steps { grid-template-columns: repeat(2, 1fr); }
+  .step { border-left: 0; border-top: 1px solid var(--linha); }
+  .step:nth-child(1), .step:nth-child(2) { border-top: 0; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  nav.menu { display: none; }
+  .preco-destaque { transform: none; }
+}
+@media (max-width: 640px) {
+  section { padding: 60px 0; }
+  .cards, .pitch, .precos, .steps { grid-template-columns: 1fr; }
+  .step { border-top: 1px solid var(--linha); }
+  .step:first-child { border-top: 0; }
+  .figs { grid-template-columns: 1fr 1fr; }
+  .figs div:nth-child(3), .figs div:nth-child(4) { border-top: 1px solid var(--linha); padding-top: 18px; margin-top: 6px; }
+  .figs div:nth-child(3) { border-left: 0; padding-left: 0; }
+  .footer-grid { grid-template-columns: 1fr; gap: 30px; }
+  .hero { padding: 40px 0 50px; }
+  .hero-cta .btn { flex: 1; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a href="/" class="logo" aria-label="Radarcanteiro">
+      <span class="logo-mark">
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M16 6 L26 26 L6 26 Z" fill="#D9541F"/>
+          <circle cx="16" cy="22" r="3" fill="#0F1B24"/>
+        </svg>
+      </span>
+      Radarcanteiro
+    </a>
+    <nav class="menu" aria-label="Menu principal">
+      <a href="#funcionalidades">Funcionalidades</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#precos">Preços</a>
+      <a href="#faq">Dúvidas</a>
+      <a href="#login" class="btn btn-ghost">Entrar</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="kicker">Radar de Obras + CRM + WhatsApp</p>
+        <h1>As obras novas da sua regiao, <span class="accent">antes de todo mundo.</span></h1>
+        <p class="tag">Encontre obras em fase inicial, monte proposta profissional em 3 minutos e mande pelo WhatsApp — tudo no mesmo lugar.</p>
+        <div class="hero-cta">
+          <a href="#cadastro" class="btn btn-grande">Comecar gratis por 14 dias</a>
+          <a href="#demo" class="btn btn-grande btn-ghost">Ver demo de 2 min</a>
+        </div>
+        <div class="hero-mini">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          Sem cartao de credito · Cancela quando quiser
+        </div>
+      </div>
+
+      <div class="mapa-preview" role="img" aria-label="Mapa de obras em Uberlandia">
+        <div class="mapa-toolbar">
+          <span class="cidade">Uberlandia, MG</span>
+          <span>Raio 20 km</span>
+        </div>
+        <div class="mapa-canvas" id="mapaCanvas"></div>
+        <div class="mapa-rodape">
+          <span><strong>247</strong> obras ativas agora</span>
+          <span>Atualizado ha 8 min</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="figs">
+      <div><b>12.847</b><span>Obras rastreadas no Brasil</span></div>
+      <div><b>380+</b><span>Construtoras e fornecedores usando</span></div>
+      <div><b>4,2x</b><span>Mais obras fechadas por mes</span></div>
+      <div><b>11 min</b><span>Tempo medio de proposta</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="funcionalidades" class="tema-claro">
+  <div class="wrap">
+    <div class="secao-cabecalho">
+      <p class="kicker">Para quem vende pra obra</p>
+      <h2>Concreteira, locadora ou fornecedor. Aqui tem.</h2>
+      <p>Chega de rodar atras de obra pronta. Voce recebe alerta no WhatsApp, abre o mapa, e fecha venda antes da concorrencia descobrir.</p>
+    </div>
+
+    <div class="cards">
+      <article class="card">
+        <div class="card-icone">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+        </div>
+        <h3>Radar de obras</h3>
+        <p>Alvara novo, reforma, construcao do zero. Voce ve a obra em fase inicial, com tipo, porte, dono e endereco completo. Filtra por segmento, raio e fase.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-icone">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+        </div>
+        <h3>CRM completo</h3>
+        <p>Lead, contato, historico, tarefa, agendamento. Tudo amarrado na mesma tela. Sem planilha que trava, sem post-it que perde.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-icone">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3H5c-1.11 0-2 .89-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5a2 2 0 0 0-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        </div>
+        <h3>Propostas profissionais</h3>
+        <p>Sua marca, seus produtos, seu preco. Gera PDF em 30 segundos, manda por WhatsApp. Cliente aceita do celular — voce recebe notificacao na hora.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-icone">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2A10 10 0 0 1 22 12a10 10 0 0 1-10 10A10 10 0 0 1 2 12 10 10 0 0 1 12 2zm-1 14h2V8h-2v8zm0 3h2v-2h-2v2z"/></svg>
+        </div>
+        <h3>WhatsApp automatizado</h3>
+        <p>Alerta diario de obra nova direto no seu zap. Resposta automatica fora do horario. Comando "VISITEI 4821" registra visita sem abrir o app.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-icone">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zm0 7L2 14l10 5 10-5L12 9z"/></svg>
+        </div>
+        <h3>Rota otimizada</h3>
+        <p>Voce define ate 12 obras, sistema calcula melhor ordem de visita considerando distancia real. Abre direto no Waze ou Google Maps.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-icone">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        </div>
+        <h3>Time e alcada</h3>
+        <p>Vendedor com desconto limitado, gerente aprova, admin controla tudo. Cada proposta com sua marca. Comissao calculada no fechamento.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="como-funciona">
+  <div class="wrap">
+    <div class="secao-cabecalho">
+      <p class="kicker">Como funciona</p>
+      <h2>Quatro passos. Vinte minutos no total.</h2>
+      <p>Nao precisa de implantacao. Nao precisa de consultor. Voce entra com login e usa no mesmo dia.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="n">01</div>
+        <h3>Cria conta</h3>
+        <p>Login com Google. Detectamos sua cidade e mostramos obras antes mesmo de voce terminar o cadastro.</p>
+      </div>
+      <div class="step">
+        <div class="n">02</div>
+        <h3>Filtra o que serve</h3>
+        <p>Escolhe segmento (concreto, locacao, material), raio em km e fase de obra. Alertas diarios no WhatsApp.</p>
+      </div>
+      <div class="step">
+        <div class="n">03</div>
+        <h3>Monta proposta</h3>
+        <p>Catalogo com seus produtos, marca da sua empresa no PDF. Manda por WhatsApp. Cliente aceita do celular.</p>
+      </div>
+      <div class="step">
+        <div class="n">04</div>
+        <h3>Fecha venda</h3>
+        <p>Sistema calcula comissao, dispara relatorio, marca lead como ganho. Voce acompanha pelo dashboard.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tema-claro">
+  <div class="wrap">
+    <div class="secao-cabecalho">
+      <p class="kicker">Para quem e</p>
+      <h2>Cada negocio usa de um jeito.</h2>
+      <p>Tres casos reais de quem usa Radar Canteiro todo dia.</p>
+    </div>
+
+    <div class="pitch">
+      <article class="pitch-card">
+        <header>
+          <div class="pitch-cargo">Concreteira</div>
+          <div class="pitch-nome">Vendedor solo</div>
+        </header>
+        <p class="pitch-quote">"Antes eu rodava 40 km por dia pra visitar obra que ja estava pronta. Agora recebo alerta no WhatsApp de obra em fundacao e chego antes do mestre."</p>
+        <p class="pitch-autor">— Concreto Ideal, Uberlandia</p>
+      </article>
+
+      <article class="pitch-card">
+        <header>
+          <div class="pitch-cargo">Locadora</div>
+          <div class="pitch-nome">Equipe de 4</div>
+        </header>
+        <p class="pitch-quote">"Cada vendedor tem alcada de 5% de desconto. Gerente aprova o resto. Acabou desconto fora do limite sem ninguem ver."</p>
+        <p class="pitch-autor">— Locar Minas, Uberaba</p>
+      </article>
+
+      <article class="pitch-card">
+        <header>
+          <div class="pitch-cargo">Fornecedor</div>
+          <div class="pitch-nome">Regional</div>
+        </header>
+        <p class="pitch-quote">"Mando proposta com logo da minha empresa, em PDF, no WhatsApp. Cliente assina pelo celular. Comissao cai na conta automatica."</p>
+        <p class="pitch-autor">— Minas Materiais, Triangulo Mineiro</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="precos">
+  <div class="wrap">
+    <div class="secao-cabecalho">
+      <p class="kicker">Precos</p>
+      <h2>Sem fidelidade. Sem surpresa.</h2>
+      <p>14 dias gratis em qualquer plano. Cancela a qualquer momento.</p>
+    </div>
+
+    <div class="precos">
+      <article class="preco">
+        <div class="preco-nome">Individual</div>
+        <div class="preco-valor">R$ 197<small>/mes</small></div>
+        <div class="preco-desc">Pra quem ta comecando.</div>
+        <ul>
+          <li>1 usuario</li>
+          <li>Radar completo</li>
+          <li>30 produtos</li>
+          <li>20 propostas/mes</li>
+          <li>Alerta WhatsApp diario</li>
+          <li>Suporte por e-mail</li>
+        </ul>
+        <div class="preco-cta">
+          <a href="#cadastro-individual" class="btn btn-ghost">Comecar</a>
+        </div>
+      </article>
+
+      <article class="preco preco-destaque">
+        <div class="preco-nome">Equipe</div>
+        <div class="preco-valor">R$ 397<small>/mes</small></div>
+        <div class="preco-desc">Pra time comercial.</div>
+        <ul>
+          <li>Ate 5 usuarios</li>
+          <li>Tudo do Individual</li>
+          <li>200 produtos</li>
+          <li>100 propostas/mes</li>
+          <li>Time + papeis</li>
+          <li>Pipeline por vendedor</li>
+          <li>Comissao automatica</li>
+          <li>Suporte em horario comercial</li>
+        </ul>
+        <div class="preco-cta">
+          <a href="#cadastro-equipe" class="btn">Comecar</a>
+        </div>
+      </article>
+
+      <article class="preco">
+        <div class="preco-nome">Regional</div>
+        <div class="preco-valor">R$ 797<small>/mes</small></div>
+        <div class="preco-desc">Pra varias filiais.</div>
+        <ul>
+          <li>Ate 20 usuarios</li>
+          <li>Tudo do Equipe</li>
+          <li>1.000 produtos</li>
+          <li>500 propostas/mes</li>
+          <li>Multiplas cidades</li>
+          <li>API publica</li>
+          <li>Suporte prioritario</li>
+        </ul>
+        <div class="preco-cta">
+          <a href="#cadastro-regional" class="btn btn-ghost">Comecar</a>
+        </div>
+      </article>
+
+      <article class="preco">
+        <div class="preco-nome">Obras</div>
+        <div class="preco-valor">Sob consulta</div>
+        <div class="preco-desc">Pra quem precisa de tudo.</div>
+        <ul>
+          <li>Usuarios ilimitados</li>
+          <li>Tudo do Regional</li>
+          <li>Produtos ilimitados</li>
+          <li>Propostas ilimitadas</li>
+          <li>Marca branca</li>
+          <li>API dedicada</li>
+          <li>Gerente de conta</li>
+        </ul>
+        <div class="preco-cta">
+          <a href="#contato" class="btn btn-ghost">Falar com vendas</a>
+        </div>
+      </article>
+    </div>
+
+    <p class="muted" style="text-align:center; margin-top: 40px; font-size: 15px;">
+      Todos os planos incluem LGPD, backup diario e atualizacao gratis. Pagamento via boleto, cartao ou Pix.
+    </p>
+  </div>
+</section>
+
+<section id="faq" class="tema-claro">
+  <div class="wrap">
+    <div class="secao-cabecalho">
+      <p class="kicker">Duvidas frequentes</p>
+      <h2>O que voce precisa saber.</h2>
+    </div>
+
+    <div class="faq">
+      <details>
+        <summary>De onde vem as obras?</summary>
+        <p>Alvara de construcao, Cadastro Nacional de Obras (CNO), licencas ambientais e contratacoes publicas (PNCP). Atualizacao diaria em 14 cidades do Triangulo Mineiro e Sul de Minas. Outras regioes sob demanda do plano Regional.</p>
+      </details>
+      <details>
+        <summary>Funciona com qualquer WhatsApp?</summary>
+        <p>Sim. Voce conecta seu numero pessoal ou comercial escaneando um QR Code. E a mesma tecnologia que WhatsApp Web usa. Pode usar o mesmo numero em paralelo com o celular.</p>
+      </details>
+      <details>
+        <summary>Tem fidelidade?</summary>
+        <p>Nao. Cancela quando quiser pelo painel. Devolucao proporcional em ate 7 dias apos a cobranca.</p>
+      </details>
+      <details>
+        <summary>E se meu numero for banido?</summary>
+        <p>Trabalhamos com rate limit inteligente, opt-in obrigatorio e conteudo monitorado. Risco e baixo se voce nao mandar mensagem em massa pra quem nao pediu. Se acontecer, a gente abre chamado na Meta com voce e migra pra outro numero em 24h.</p>
+      </details>
+      <details>
+        <summary>Como voces cumprem a LGPD?</summary>
+        <p>Opt-in explicito por canal, opt-out em 1 clique, dados criptografados, encarregado (DPO) nomeado na politica de privacidade. Voce pode pedir exclusao de qualquer contato a qualquer momento.</p>
+      </details>
+      <details>
+        <summary>Posso migrar de outro CRM?</summary>
+        <p>Sim. Importamos leads, contatos, propostas e historico de Pipefy, HubSpot, Kommo, Planilha Google e qualquer CSV com mapeamento. No plano Equipe em diante, migracao assistida sem custo extra.</p>
+      </details>
+      <details>
+        <summary>Voces tem nota fiscal?</summary>
+        <p>Sim. NFe emitida em ate 48h apos o pagamento. Aparece no painel na area de cobranca.</p>
+      </details>
+      <details>
+        <summary>Posso testar antes de pagar?</summary>
+        <p>14 dias gratis em qualquer plano. Sem cartao. Se decidir continuar, escolhe forma de pagamento. Se nao, conta vira somente leitura (voce ainda ve seus dados por 90 dias).</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="cta-final" id="cadastro">
+  <div class="wrap">
+    <h2>Pronto pra ser o primeiro a chegar na obra?</h2>
+    <p>Cria conta em 30 segundos, escolhe a cidade e ve as obras que estao esperando por voce agora.</p>
+    <a href="#signup" class="btn btn-grande">Criar conta gratis</a>
+    <p style="margin-top: 24px; font-size: 14px; color: #6F8590;">Sem cartao · 14 dias gratis · Cancela quando quiser</p>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <a href="/" class="logo" style="color: #fff; margin-bottom: 14px;">
+          <span class="logo-mark">
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path d="M16 6 L26 26 L6 26 Z" fill="#D9541F"/>
+              <circle cx="16" cy="22" r="3" fill="#0F1B24"/>
+            </svg>
+          </span>
+          Radarcanteiro
+        </a>
+        <p style="margin-top: 16px; font-size: 14px; line-height: 1.5;">
+          Radar de obras + CRM + WhatsApp pra quem vende pra construcao civil. Feito em Uberlandia, MG.
+        </p>
+      </div>
+
+      <div>
+        <h4>Produto</h4>
+        <ul>
+          <li><a href="#funcionalidades">Funcionalidades</a></li>
+          <li><a href="#precos">Precos</a></li>
+          <li><a href="#faq">Duvidas</a></li>
+          <li><a href="#changelog">Novidades</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Empresa</h4>
+        <ul>
+          <li><a href="#sobre">Sobre</a></li>
+          <li><a href="#contato">Contato</a></li>
+          <li><a href="#blog">Blog</a></li>
+          <li><a href="#parceiros">Programa de revenda</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="#termos">Termos de uso</a></li>
+          <li><a href="#privacidade">Politica de privacidade</a></li>
+          <li><a href="#dpa">DPA (LGPD)</a></li>
+          <li><a href="#status">Status</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-rodape">
+      <span>(c) 2026 Radarcanteiro · CNPJ XX.XXX.XXX/0001-XX</span>
+      <span>Feito com cafe em Uberlandia, MG</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+const canvas = document.getElementById('mapaCanvas');
+const pinos = [
+  { x: 18, y: 28, valor: 'R$ 320k' },
+  { x: 28, y: 52, valor: 'R$ 180k' },
+  { x: 42, y: 18, valor: 'R$ 540k' },
+  { x: 56, y: 70, valor: 'R$ 92k' },
+  { x: 67, y: 32, valor: 'R$ 1.2M', destaque: true },
+  { x: 78, y: 58, valor: 'R$ 410k' },
+  { x: 88, y: 24, valor: 'R$ 280k' },
+  { x: 35, y: 78, valor: 'R$ 145k' },
+  { x: 82, y: 78, valor: 'R$ 67k' },
+];
+
+pinos.forEach((p, i) => {
+  const pino = document.createElement('div');
+  pino.className = 'pino';
+  pino.style.left = p.x + '%';
+  pino.style.top = p.y + '%';
+  pino.innerHTML = '<svg viewBox="0 0 32 40" fill="none" aria-hidden="true"><path d="M16 0C7.16 0 0 7.16 0 16c0 11 16 24 16 24s16-13 16-24C32 7.16 24.84 0 16 0z" fill="' + (p.destaque ? '#D9541F' : '#2E6F8E') + '"/><circle cx="16" cy="16" r="6" fill="#0F1B24"/></svg>' + (p.destaque ? '<div class="pino-tag">' + p.valor + '</div>' : '') + (p.destaque ? '<div class="pino-pulse"></div>' : '');
+  canvas.appendChild(pino);
+});
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.style.opacity = '1';
+      entry.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.card, .step, .pitch-card, .preco').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(20px)';
+  el.style.transition = 'opacity .6s, transform .6s';
+  observer.observe(el);
+});
+</script>
+
+</body>
+</html>
