@@ -9,6 +9,16 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
+-- Function gen_random_uuid é fornecida pela extensão pgcrypto (inclusa no Supabase)
+-- Se uuid_generate_v4 não existir, usamos gen_random_uuid()
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'uuid_generate_v4') THEN
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+  END IF;
+END
+$$;
+
 -- =============================================================================
 -- PLANOS
 -- =============================================================================
@@ -33,7 +43,7 @@ INSERT INTO planos (id, nome, preco, usuarios, limite_obras_mes, limite_leads, l
 -- TENANTS (empresas/clientes)
 -- =============================================================================
 CREATE TABLE tenants (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   plano TEXT NOT NULL DEFAULT 'individual' REFERENCES planos(id),
@@ -57,7 +67,7 @@ CREATE INDEX idx_tenants_status ON tenants(status);
 -- USUÁRIOS DO TENANT (vínculo auth.users <-> tenant)
 -- =============================================================================
 CREATE TABLE tenant_users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   papel TEXT NOT NULL DEFAULT 'vendedor' CHECK (papel IN ('admin','gerente','vendedor','leitor')),
@@ -75,7 +85,7 @@ CREATE INDEX idx_tenant_users_user ON tenant_users(user_id);
 -- CONVITES DE USUÁRIO
 -- =============================================================================
 CREATE TABLE tenant_convites (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   papel TEXT NOT NULL DEFAULT 'vendedor' CHECK (papel IN ('admin','gerente','vendedor','leitor')),
@@ -92,7 +102,7 @@ CREATE INDEX idx_convites_email ON tenant_convites(email);
 -- RADAR DE OBRAS
 -- =============================================================================
 CREATE TABLE radar_obras (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   fonte TEXT NOT NULL CHECK (fonte IN ('cno','alvara_prefeitura','pncp','semad_mg')),
   fonte_id TEXT,
@@ -134,7 +144,7 @@ CREATE INDEX idx_obras_geo ON radar_obras USING GIST(geo);
 -- CRM LEADS
 -- =============================================================================
 CREATE TABLE crm_leads (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   nome TEXT NOT NULL,
   empresa TEXT,
@@ -163,7 +173,7 @@ CREATE INDEX idx_leads_responsavel ON crm_leads(tenant_id, responsavel_id);
 -- CRM DEALS (oportunidades)
 -- =============================================================================
 CREATE TABLE crm_deals (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   lead_id UUID NOT NULL REFERENCES crm_leads(id) ON DELETE RESTRICT,
   obra_id UUID REFERENCES radar_obras(id) ON DELETE SET NULL,
@@ -188,7 +198,7 @@ CREATE INDEX idx_deals_responsavel ON crm_deals(tenant_id, responsavel_id);
 -- CRM ATIVIDADES
 -- =============================================================================
 CREATE TABLE crm_atividades (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   lead_id UUID REFERENCES crm_leads(id) ON DELETE SET NULL,
   deal_id UUID REFERENCES crm_deals(id) ON DELETE SET NULL,
@@ -208,7 +218,7 @@ CREATE INDEX idx_atividades_vencimento ON crm_atividades(tenant_id, data_vencime
 -- CRM PIPELINE (estágios customizáveis)
 -- =============================================================================
 CREATE TABLE crm_pipeline_estagios (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   nome TEXT NOT NULL,
   ordem INTEGER NOT NULL,
@@ -218,18 +228,18 @@ CREATE TABLE crm_pipeline_estagios (
   UNIQUE(tenant_id, ordem)
 );
 
--- Seed de estágios padrão
+-- Seed de estágios padrão (só executa se existir pelo menos um tenant)
 INSERT INTO crm_pipeline_estagios (tenant_id, nome, ordem, cor, probabilidade_padrao)
-SELECT id, nome, ordem, cor, prob
+SELECT tenant_id, nome, ordem, cor, prob
 FROM (
   VALUES
-    ('00000000-0000-0000-0000-000000000000', 'Novo', 1, '#A9B4BA', 10),
-    ('00000000-0000-0000-0000-000000000000', 'Contato', 2, '#2E6F8E', 25),
-    ('00000000-0000-0000-0000-000000000000', 'Proposta', 3, '#D97706', 50),
-    ('00000000-0000-0000-0000-000000000000', 'Negociação', 4, '#7C3AED', 75),
-    ('00000000-0000-0000-0000-000000000000', 'Fechamento', 5, '#059669', 90),
-    ('00000000-0000-0000-0000-000000000000', 'Ganho', 6, '#16A34A', 100),
-    ('00000000-0000-0000-0000-000000000000', 'Perdido', 7, '#DC2626', 0)
+    ('00000000-0000-0000-0000-000000000000'::uuid, 'Novo', 1, '#A9B4BA', 10),
+    ('00000000-0000-0000-0000-000000000000'::uuid, 'Contato', 2, '#2E6F8E', 25),
+    ('00000000-0000-0000-0000-000000000000'::uuid, 'Proposta', 3, '#D97706', 50),
+    ('00000000-0000-0000-0000-000000000000'::uuid, 'Negociação', 4, '#7C3AED', 75),
+    ('00000000-0000-0000-0000-000000000000'::uuid, 'Fechamento', 5, '#059669', 90),
+    ('00000000-0000-0000-0000-000000000000'::uuid, 'Ganho', 6, '#16A34A', 100),
+    ('00000000-0000-0000-0000-000000000000'::uuid, 'Perdido', 7, '#DC2626', 0)
 ) AS t(tenant_id, nome, ordem, cor, prob)
 WHERE EXISTS (SELECT 1 FROM tenants LIMIT 1);
 
@@ -237,7 +247,7 @@ WHERE EXISTS (SELECT 1 FROM tenants LIMIT 1);
 -- AUDIT LOG
 -- =============================================================================
 CREATE TABLE audit_log (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   acao TEXT NOT NULL,
