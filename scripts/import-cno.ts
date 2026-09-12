@@ -3,6 +3,8 @@
  * Versão simples e robusta
  */
 
+// @ts-nocheck - Script standalone, não faz parte do build do Next.js
+
 import { createClient } from '@supabase/supabase-js';
 import { createInterface } from 'readline';
 import { createReadStream } from 'fs';
@@ -18,8 +20,8 @@ const TENANT_ID = process.env.CNO_TENANT_ID || '00000000-0000-0000-0000-00000000
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-function parseCSVLine(line) {
-  const result = [];
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
   let current = '';
   let inQuotes = false;
 
@@ -51,8 +53,8 @@ function parseCSVLine(line) {
   return result;
 }
 
-function mapCnoToObra(values, headers) {
-  const row = {};
+function mapCnoToObra(values: string[], headers: string[]): Record<string, unknown> {
+  const row: Record<string, string> = {};
   headers.forEach((header, idx) => {
     row[header] = values[idx] || '';
   });
@@ -98,7 +100,7 @@ function mapCnoToObra(values, headers) {
   };
 }
 
-async function insertBatch(records) {
+async function insertBatch(records: Record<string, unknown>[]) {
   if (records.length === 0) return { inserted: 0, skipped: 0 };
 
   const { error } = await supabase
@@ -133,12 +135,12 @@ async function main() {
   }
   console.log('✅ Conexão OK\n');
 
-  let batch = [];
+  let batch: Record<string, unknown>[] = [];
   let totalProcessed = 0;
   let totalInserted = 0;
   let totalSkipped = 0;
   let lineNumber = 0;
-  let headers = [];
+  let headers: string[] = [];
 
   console.log('📊 Processando arquivo...\n');
 
