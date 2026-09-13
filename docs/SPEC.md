@@ -2,7 +2,7 @@
 
 Contexto: Este documento descreve o modulo completo de Radar de Obras, Radar de Empresas e CRM atualmente existente no sistema e-sweet-code-play, a ser extraido e evoluido para um produto SaaS independente.
 
-Esta versao (1.2) acrescenta a Secao 10 (Cadastros Comerciais e Operacao de Venda) e atualiza a Secao 9 com nova conta financeira considerando o ticket medio elevado para R$ 480.
+Esta versao (1.3) acrescentada a Secao 13 (Sistema de Marcacoes Waze-style), consolidacao de todas as epics anteriores (ETL, mapa geografico, cadastros comerciais, WhatsApp EvolutionAPI) e correcao de RLS.
 
 ---
 
@@ -20,6 +20,7 @@ Esta versao (1.2) acrescenta a Secao 10 (Cadastros Comerciais e Operacao de Vend
 10. Cadastros comerciais e operacao de venda
 11. Mudanca de stack: WhatsApp via EvolutionAPI
 12. Escopo geografico do MVP
+13. Sistema de Marcacoes da Comunidade (estilo Waze)
 
 ---
 
@@ -1271,6 +1272,140 @@ curl -X POST "$EVOLUTION_BASE_URL/instance/create" \
   }"
 ```
 
+## 14. Design System
+
+### 14.1 Visao Geral
+
+O sistema utiliza um design system moderno baseado em:
+- **Tailwind CSS** com customizacoes via `tailwind.config.ts`
+- **Radix UI** para componentes acessiveis
+- **Lucide React** para icones
+- **Custom CSS Variables** para theming (light/dark mode)
+
+### 14.2 Paleta de Cores
+
+#### Cores Primarias
+| Nome | Hex | Uso |
+|------|-----|-----|
+| primary | #E85D04 | Acoes principais, CTAs, destaques |
+| secondary | #1B4965 | Elementos secundarios, informativos |
+
+#### Cores de Background
+| Nome | Light | Dark |
+|------|-------|------|
+| background | #FAFAFA | #0D1B2A |
+| card | #FFFFFF | #151D2E |
+| muted | #F4F4F5 | #1F2937 |
+| border | #E4E4E7 | #2D3748 |
+
+#### Cores Semanticas
+| Nome | Hex | Uso |
+|------|-----|-----|
+| success | #10B981 | Sucesso, estados positivos |
+| warning | #F59E0B | Avisos, atencao |
+| destructive | #EF4444 | Erros, acoes perigosas |
+
+### 14.3 Tipografia
+
+- **Headings**: Plus Jakarta Sans (Google Fonts), weight 700-800
+- **Body**: Inter (Google Fonts), weight 400-600
+- **Monospace**: JetBrains Mono para codigo
+
+### 14.4 Espacamento
+
+Baseado em escala de 4px:
+- xs: 4px
+- sm: 8px
+- md: 16px
+- lg: 24px
+- xl: 32px
+- 2xl: 48px
+
+### 14.5 Sombras
+
+| Nome | CSS |
+|------|-----|
+| soft | 0 2px 8px -2px rgba(0, 0, 0, 0.05), 0 4px 16px -4px rgba(0, 0, 0, 0.1) |
+| soft-lg | 0 4px 12px -4px rgba(0, 0, 0, 0.08), 0 8px 24px -8px rgba(0, 0, 0, 0.12) |
+| soft-xl | 0 8px 24px -8px rgba(0, 0, 0, 0.1), 0 16px 48px -16px rgba(0, 0, 0, 0.15) |
+| glow | 0 0 20px rgba(232, 93, 4, 0.15) |
+
+### 14.6 Border Radius
+
+| Nome | Valor |
+|------|-------|
+| sm | 0.375rem |
+| md | 0.5rem |
+| lg | 0.75rem |
+| xl | 1rem |
+| 2xl | 1.5rem |
+
+### 14.7 Componentes Principais
+
+#### Button
+- Variants: default, destructive, success, warning, outline, secondary, ghost, link
+- Sizes: default (h-11), sm (h-9), lg (h-12), icon, icon-sm
+- Estados: hover com shadow, active com scale, disabled com opacity
+
+#### Card
+- Border radius: xl (0.75rem)
+- Shadow: soft por padrao, soft-lg no hover
+- Padding: p-6 no content
+
+#### Input
+- Height: h-11
+- Border radius: lg (0.75rem)
+- Shadow: inner-soft
+- Focus: ring-2 com ring-primary/50
+
+#### Badge
+- Border radius: full (pill)
+- Padding: px-3 py-1
+- Variants: default, secondary, destructive, success, warning, info, outline, ghost, subtle
+
+### 14.8 Animacoes
+
+| Nome | Keyframes |
+|------|-----------|
+| fade-in | opacity 0 a 1, 200ms |
+| fade-in-up | opacity 0 a 1 + translateY(10px a 0), 300ms |
+| slide-in-right | opacity 0 a 1 + translateX(20px a 0), 300ms |
+| scale-in | opacity 0 a 1 + scale(0.95 a 1), 200ms |
+| pulse-soft | opacity 1 a 0.7 a 1, 2s infinite |
+| float | translateY(0 a -5px a 0), 3s infinite |
+
+### 14.9 Layout do Dashboard
+
+#### Sidebar
+- Width: 256px (expandida) / 72px (colapsada)
+- Nav items com icones Lucide
+- Badge de "Admin" para secoes administrativas
+- Botao de collapse no rodape
+
+#### Header
+- Height: 64px
+- Busca global integrada
+- Notificacoes com contador
+- Toggle de tema
+- Menu do usuario com avatar
+
+### 14.10 Responsividade
+
+Breakpoints (Tailwind padrao):
+- sm: 640px
+- md: 768px
+- lg: 1024px
+- xl: 1280px
+- 2xl: 1536px
+
+### 14.11 Acessibilidade
+
+- Focus-visible com outline 2px
+- Contraste WCAG AA minimo
+- Roles ARIA em componentes interativos
+- Suporte a keyboard navigation
+- Selection color com primary/15
+
 Funcao Edge wa-evolucao-criar-instancia(tenant_id):
 
 1. Chama script via API.
@@ -1500,10 +1635,227 @@ Cada expansao exige:
 
 ---
 
+# 13. Sistema de Marcações da Comunidade (estilo Waze)
+
+## 13.1 Conceito
+
+Hoje o Radar mostra obras detectadas via CNO / alvará / PNCP, mas a coluna `fase_atual` é apenas informativa — definida na importação e nunca muda. O vendedor visita a obra, vê que está em alvenaria/reboco, mas não consegue registrar isso. Resultado: o sistema perde inteligência coletiva.
+
+A solução é um **sistema de confirmações estilo Waze**: cada usuário pode **marcar** uma fase para a obra (igual marcar "buraco na via") e outros usuários podem **confirmar** essa marcação (igual "ainda tem buraco"). As mais confirmadas vencem. Os criadores das confirmadas ganham pontos.
+
+**Importante**: a obra é **global** — a mesma obra aparece para todos os tenants e todos contribuem para o mesmo pool de marcações.
+
+## 13.2 Decisões de design
+
+| Pergunta | Resposta |
+|---|---|
+| Voto vs confirmação | **Confirmação tipo Waze** (cada marcação acumula confirmações) |
+| Paywall | **Grátis para todos** (growth strategy) |
+| Escopo | **MVP + gamificação** (pontos por contribuição validada) |
+
+## 13.3 Modelo de dados
+
+### Conceito-chave: a "obra global" é a mesma instância compartilhada entre tenants
+
+Hoje existe `radar_obras` (multi-tenant). Modelo em duas camadas:
+
+**`radar_obras_globais`** — a obra "canônica" da plataforma, independente de tenant
+**`radar_obras`** (existente) — espelho por tenant, com `obra_global_id` referenciando a canônica
+
+Quando uma obra é importada por qualquer tenant, ela é linkada à global por `hash_deduplicacao`. Se a global não existe, é criada na hora via `get_or_create_obra_global()`.
+
+### Tabelas
+
+```sql
+-- 1. Obra "canônica" da plataforma (1 por obra real, independente de tenant)
+CREATE TABLE radar_obras_globais (
+  id UUID PRIMARY KEY,
+  hash_deduplicacao TEXT UNIQUE NOT NULL,
+  endereco_logradouro TEXT NOT NULL,
+  endereco_cidade TEXT NOT NULL,
+  endereco_uf CHAR(2) NOT NULL,
+  lat NUMERIC(10,7),
+  lng NUMERIC(10,7),
+  geo GEOGRAPHY(POINT, 4326) GENERATED ALWAYS AS (...),  -- PostGIS
+  fase_consolidada TEXT,          -- fase com mais confirmações
+  fase_macro_consolidada TEXT,    -- macro: fundacao/estrutura/acabamento/etc
+  total_marcacoes INTEGER DEFAULT 0,
+  total_confirmacoes INTEGER DEFAULT 0,
+  ultima_atividade_em TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS: todos usuários autenticados podem ler; ninguém escreve direto
+ALTER TABLE radar_obras_globais ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Leitura global obras" ON radar_obras_globais FOR SELECT USING (true);
+```
+
+```sql
+-- 2. Marcações (cada marcação é uma "afirmação" de fase criada por um usuário)
+CREATE TABLE radar_obra_marcacoes (
+  id UUID PRIMARY KEY,
+  obra_global_id UUID NOT NULL REFERENCES radar_obras_globais(id),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  fase TEXT NOT NULL,             -- 'alvenaria', 'reboco', 'fundacao_pronta', etc
+  fase_macro TEXT NOT NULL,       -- 'fundacao'|'estrutura'|'acabamento'|'concluida'|'paralisada'|'nao_iniciou'
+  nota TEXT,                      -- comentário opcional
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- RLS: SELECT para todos; INSERT para auth.uid(); DELETE para criador
+```
+
+```sql
+-- 3. Confirmações estilo Waze (cada usuário pode confirmar 1x cada marcação)
+CREATE TABLE radar_obra_confirmacoes (
+  id UUID PRIMARY KEY,
+  marcacao_id UUID NOT NULL REFERENCES radar_obra_marcacoes(id),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(marcacao_id, user_id)  -- usuário confirma 1x por marcação
+);
+-- RLS: SELECT para todos; INSERT/DELETE para o próprio user
+```
+
+```sql
+-- 4. Pontuação (gamificação) por usuário
+CREATE TABLE radar_user_pontuacao (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id),
+  pontos INTEGER DEFAULT 0,
+  marcacoes_criadas INTEGER DEFAULT 0,
+  confirmacoes_feitas INTEGER DEFAULT 0,
+  marcacoes_confirmadas INTEGER DEFAULT 0,
+  badges TEXT[] DEFAULT '{}',
+  nivel TEXT DEFAULT 'observador'  -- observador/colaborador/especialista/validador/lenda
+);
+-- RLS: SELECT/UPDATE apenas para próprio user
+```
+
+```sql
+-- 5. Catálogo de badges
+CREATE TABLE radar_badges (
+  id TEXT PRIMARY KEY,                    -- 'primeira_marcacao', 'validador_10', etc
+  nome TEXT NOT NULL,
+  descricao TEXT NOT NULL,
+  icone TEXT NOT NULL,                   -- emoji
+  criterio_pontos INTEGER NOT NULL,
+  criterio_confirmacoes INTEGER NOT NULL DEFAULT 0
+);
+
+INSERT INTO radar_badges VALUES
+  ('primeira_marcacao', 'Primeira Marcação', 'Você fez sua primeira marcação de fase', '🎯', 0, 0),
+  ('colaborador', 'Colaborador', '10 pontos conquistados', '🟢', 10, 0),
+  ('especialista', 'Especialista', '50 pontos conquistados', '🏆', 50, 0),
+  ('lenda', 'Lenda do Radar', '200 pontos conquistados', '👑', 200, 0),
+  ('observador_ativo', 'Observador Ativo', '50 confirmações feitas', '👁️', 0, 50),
+  ('validador_100', 'Validador', '100 confirmações recebidas', '⭐', 0, 100);
+```
+
+### Fases aceitas (fase_macro)
+
+| Macro | Sub-fases (fase granular) |
+|---|---|
+| alvara | Alvará deferido, Alvará aguardando |
+| fundacao | Escavação, Fundação rasa, Fundação profunda, Fundação pronta |
+| estrutura | Alvenaria, Laje, Estrutura pronta |
+| acabamento | Reboco, Contrapiso, Revestimento, Pintura, Instalações, Acabamento final |
+| paralisada | Obra parada |
+| nao_iniciou | Terreno, Projeto |
+| concluida | Obra entregue |
+
+## 13.4 Triggers automáticos
+
+### Recalcular fase consolidada
+
+Quando uma marcação é criada ou uma confirmação é inserida/deletada, recalcular `fase_consolidada` da obra global — a fase com mais confirmações vence:
+
+```sql
+-- Trigger: tr_recalcular_fase_marcacao (AFTER INSERT ON radar_obra_marcacoes)
+-- Trigger: tr_recalcular_fase_confirmacao (AFTER INSERT OR DELETE ON radar_obra_confirmacoes)
+-- Função: recalcular_fase_consolidada()
+--   1. Conta confirmações por (fase, fase_macro) na obra
+--   2. Ordena por COUNT(c.id) DESC, MAX(created_at) DESC
+--   3. Atualiza radar_obras_globais.fase_consolidada, fase_macro_consolidada, total_*
+```
+
+### Pontuação (gamificação)
+
+Quando uma confirmação é criada:
+- Criador da marcação recebe +1 ponto (sua marcação foi validada)
+- Confirmador tem `confirmacoes_feitas` incrementado (trigger separado)
+
+```sql
+-- Trigger: tr_pontuacao_confirmacao (AFTER INSERT OR DELETE ON radar_obra_confirmacoes)
+--   INSERT: atualiza pontuação do criador da marcação + do confirmador
+--   DELETE: reverte pontuação de ambos
+-- Função: upsert_pontuacao(user_id)
+--   - Calcula pontos = COUNT(confirmações recebidas nas suas marcações)
+--   - Define nível: 0-9=observador, 10-49=colaborador, 50-199=especialista, 200+=lenda
+--   - Atualiza badges conforme critérios
+```
+
+## 13.5 UX da feature (MVP)
+
+### Card "Fase da comunidade" na página de detalhe da obra
+
+```
+┌─────────────────────────────────────────┐
+│  👥 Fase segundo a comunidade           │
+│                                          │
+│  🧱 Alvenaria                            │
+│  5 confirmações · 7 marcações totais     │
+│  Última atividade: há 2 dias             │
+│                                          │
+│  [✓ Confirmar]   [+ Marcar outra fase]   │
+│                                          │
+│  ──────── outras marcações ────────     │
+│  👤 João · "Fundação" · 2 confirmações │
+│  👤 Maria · "Estrutura" · 1 confirmação │
+└─────────────────────────────────────────┘
+```
+
+### Modal "Marcar fase"
+
+1. Botões grandes coloridos para fases macro (Alvará, Fundação, Estrutura, Acabamento, Paralisada)
+2. Depois de escolher macro, mostra chips com sub-fases (Alvenaria, Laje, Reboco, etc.)
+3. Campo opcional "O que você viu?" (textarea)
+4. Botão "Registrar marcação"
+
+### Confirmação rápida (1 clique)
+
+- Botão "✓ Confirmar" em cada marcação listada
+- Toast "Obrigado! +1 ponto para quem marcou" (mostra nome do criador)
+
+### Página de configurações → "Minha contribuição"
+
+- Card com: pontos totais, nível atual, badges conquistadas
+- Próximo nível: "faltam 15 marcações para Especialista"
+
+## 13.6 Componentes frontend
+
+| Componente | Descrição |
+|---|---|
+| `ModalMarcarFase.tsx` | Modal com seleção de fase + nota |
+| `CardConfirmacoes.tsx` | Lista de marcações com botões confirmar |
+| `MinhaPontuacao.tsx` | Widget com pontos + nível + badges |
+| Card "Fase da comunidade" | Integrado na página `radar/[id]` |
+| Tag "🟢 N marcações" | Integrado na listagem `radar/page.tsx` |
+
+## 13.7 Verificação de deploy
+
+1. Aplicar migration: rodar `APLICAR_003.sql` no SQL Editor do Supabase
+2. Testar fluxo completo:
+   - Logar como usuário A → abrir obra → marcar "Alvenaria"
+   - Logar como usuário B (outro tenant) → ver mesma obra → confirmar
+   - Verificar toast "+1 ponto" e atualização de fase consolidada
+3. Verificar RLS: usuário B vê marcações globais mas não pode editar obras de outros tenants
+
+---
+
 # Fim da Spec v1.2
 
-Versao: 1.2
-Data: 2026-01-15
-Autor: especificacao consolidada de RADAR_CRM_SAAS_SPEC v1.0 + EPICOS v1.0 + CADASTROS_COMERCIAIS v1.0 + EVOLUTIONAPI v1.0
+Versao: 1.3
+Data: 2026-09-13
+Autor: especificacao consolidada de RADAR_CRM_SAAS_SPEC v1.0 + EPICOS v1.0 + CADASTROS_COMERCIAIS v1.0 + EVOLUTIONAPI v1.0 + MARCACOES_WAZE v1.0
 
 Esta spec esta sujeita a revisao conforme feedback de usuarios piloto e evolucao do produto.

@@ -1,17 +1,11 @@
 -- =============================================================================
--- MIGRATION 006: corrigir RLS recursivo em tenant_users
--- Cole no SQL Editor e rode 1x
+-- APLICAR_006: Corrigir RLS recursivo em tenant_users
+-- Execute este arquivo no SQL Editor do Supabase
+-- A policy original "Tenant users admin" lia da PROPRIA tabela = loop infinito.
+-- Solução: funções SECURITY DEFINER que retornam valores escalares
 -- =============================================================================
 
--- Cria função exec_sql (pra futuras migrations via CLI)
-CREATE OR REPLACE FUNCTION exec_sql(sql TEXT)
-RETURNS VOID AS $$
-BEGIN
-  EXECUTE sql;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Drop TODAS as policies de tenant_users (a antiga é recursiva)
+-- Drop policies antigas que tinham recursão
 DO $$
 DECLARE r record;
 BEGIN
@@ -23,12 +17,11 @@ BEGIN
   END LOOP;
 END $$;
 
--- Recriar policies SEM recursão:
 -- 1) Usuário vê o próprio vínculo
-CREATE POLICY "Vê próprio vínculo" ON tenant_users
+CREATE POLICY "tenant_users_self_select" ON tenant_users
   FOR SELECT USING (user_id = auth.uid());
 
--- 2) Usuário vê os colegas do mesmo tenant (usa função SECURITY DEFINER pra evitar loop)
+-- 2) Função SECURITY DEFINER: pega tenant do user logado (bypass RLS)
 CREATE OR REPLACE FUNCTION get_my_tenant_id()
 RETURNS UUID
 LANGUAGE sql
@@ -39,10 +32,11 @@ AS $$
   SELECT tenant_id FROM tenant_users WHERE user_id = auth.uid() LIMIT 1
 $$;
 
-CREATE POLICY "Vê colegas do mesmo tenant" ON tenant_users
+-- 3) Vê colegas do mesmo tenant (via função, sem recursão)
+CREATE POLICY "tenant_users_same_tenant_select" ON tenant_users
   FOR SELECT USING (tenant_id = get_my_tenant_id());
 
--- 3) Admin pode atualizar/deletar (sem recursão, via função)
+-- 4) Função: verificar se é admin do tenant
 CREATE OR REPLACE FUNCTION is_admin_of(p_tenant UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -59,9 +53,10 @@ AS $$
   )
 $$;
 
-CREATE POLICY "Admin gerencia tenant_users" ON tenant_users
+-- 5) Admin pode fazer tudo no tenant_users do próprio tenant
+CREATE POLICY "tenant_users_admin_all" ON tenant_users
   FOR ALL USING (is_admin_of(tenant_id));
 
--- Permite INSERT direto para signup (auth.users pode criar seu próprio vínculo via trigger)
-CREATE POLICY "Insert próprio vínculo" ON tenant_users
+-- 6) Permite auto-insert no signup
+CREATE POLICY "tenant_users_self_insert" ON tenant_users
   FOR INSERT WITH CHECK (user_id = auth.uid());

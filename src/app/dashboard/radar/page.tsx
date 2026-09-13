@@ -1,21 +1,33 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Search,
-  Plus,
   MapPin,
-  Filter,
   Building,
   ChevronRight,
   Download,
   ThumbsUp,
+  Crosshair,
 } from 'lucide-react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
+
+const RadarMap = dynamic(
+  () => import('@/components/radar/RadarMap').then((m) => m.RadarMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 w-full bg-[#EEF1F2] animate-pulse flex items-center justify-center">
+        <span className="text-xs text-muted-foreground">Carregando mapa...</span>
+      </div>
+    ),
+  }
+)
 
 type Obra = {
   id: string
@@ -32,7 +44,14 @@ type Obra = {
   qualidade_score?: number
   created_at: string
   obra_global_id?: string
+  lat?: number
+  lng?: number
+  distancia_km?: number
+  fase_consolidada?: string
+  total_marcacoes?: number
 }
+
+type GeoPos = { lat: number; lng: number }
 
 const FASE_COLORS: Record<string, { bg: string; text: string }> = {
   alvara: { bg: 'bg-red-50', text: 'text-red-700' },
@@ -43,10 +62,9 @@ const FASE_COLORS: Record<string, { bg: string; text: string }> = {
   nao_iniciou: { bg: 'bg-slate-50', text: 'text-slate-600' },
 }
 
-const FASE_NAO_IDENTIFICADA = {
-  bg: 'bg-slate-100',
-  text: 'text-slate-500',
-}
+const FASE_NAO_IDENTIFICADA = { bg: 'bg-slate-100', text: 'text-slate-500' }
+
+const RAIO_OPCOES = [10, 25, 50, 100]
 
 export default function RadarPage() {
   const [obras, setObras] = useState<Obra[]>([])
@@ -56,7 +74,38 @@ export default function RadarPage() {
   const [filtroCidade, setFiltroCidade] = useState('todos')
   const [cidades, setCidades] = useState<string[]>([])
   const [tenantId, setTenantId] = useState<string | null>(null)
+  const [geoPos, setGeoPos] = useState<GeoPos | null>(null)
+  const [raioKm, setRaioKm] = useState(50)
+  const [geoLoading, setGeoLoading] = useState(false)
+  const [geoError, setGeoError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 20
   const supabase = createClient()
+
+  // Pegar localização do navegador
+  const buscarLocalizacao = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGeoError('Geolocalizacao nao disponivel')
+      return
+    }
+    setGeoLoading(true)
+    setGeoError(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoPos({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setGeoLoading(false)
+      },
+      (err) => {
+        setGeoError(err.message)
+        setGeoLoading(false)
+        // Fallback: Uberlandia
+        setGeoPos({ lat: -18.9186, lng: -48.2772 })
+      },
+      { timeout: 8000 }
+    )
+  }, [])
+
+  useEffect(() => { buscarLocalizacao() }, [buscarLocalizacao])
 
   useEffect(() => {
     async function load() {
@@ -82,32 +131,49 @@ export default function RadarPage() {
         setTenantId(tu.tenant_id)
         console.log('[radar] tenant_id:', tu.tenant_id)
 
-        // Timeout de seguranca: 10s
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => {
-          console.error('[radar] timeout 10s')
-          controller.abort()
-        }, 10000)
+        let obrasData: Obra[] = []
 
-        const { data, error } = await supabase
-          .from('radar_obras')
-          .select('*')
-          .eq('tenant_id', tu.tenant_id)
-          .order('created_at', { ascending: false })
-          .limit(200)
-
-        clearTimeout(timeoutId)
-
-        if (error) {
-          console.error('[radar] obras error:', error.message)
-          setLoading(false)
-          return
+        // Se temos posicao geografica, usar funcao com raio
+        if (geoPos) {
+          const { data: obrasGeo, error: errGeo } = await supabase.rpc('fn_radar_obras_no_raio', {
+            p_lat: geoPos.lat,
+            p_lng: geoPos.lng,
+            p_raio_km: raioKm,
+            p_fase: filtroFase !== 'todos' ? filtroFase : null,
+            p_cidade: filtroCidade !== 'todos' ? filtroCidade : null,
+            p_limit: 200,
+            p_tenant: tu.tenant_id,
+          })
+          if (errGeo) {
+            console.error('[radar] fn_radar_obras_no_raio error:', errGeo.message)
+          } else {
+            obrasData = (obrasGeo ?? []) as Obra[]
+          }
         }
 
-        console.log('[radar] carregou', data?.length, 'obras')
-        let obrasCarregadas = (data ?? []) as Obra[]
+        // Se nao tem geo ou falha, carregar todas
+        if (obrasData.length === 0) {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000)
 
-        const obrasComGlobal = obrasCarregadas.filter((o) => o.obra_global_id)
+          const { data, error } = await supabase
+            .from('radar_obras')
+            .select('*')
+            .eq('tenant_id', tu.tenant_id)
+            .order('created_at', { ascending: false })
+            .limit(200)
+
+          clearTimeout(timeoutId)
+          if (error) {
+            console.error('[radar] obras error:', error.message)
+            setLoading(false)
+            return
+          }
+          obrasData = (data ?? []) as Obra[]
+        }
+
+        // Enriquecer com dados da global
+        const obrasComGlobal = obrasData.filter((o) => o.obra_global_id)
         if (obrasComGlobal.length > 0) {
           const ids = obrasComGlobal.map((o) => o.obra_global_id!)
           const { data: globais } = await supabase
@@ -116,17 +182,15 @@ export default function RadarPage() {
             .in('id', ids)
           if (globais) {
             const map = new Map((globais as any[]).map((g) => [g.id, g]))
-            obrasCarregadas = obrasCarregadas.map((o) => ({
+            obrasData = obrasData.map((o) => ({
               ...o,
-              total_marcacoes_globais: o.obra_global_id ? map.get(o.obra_global_id)?.total_marcacoes ?? 0 : 0,
-              total_confirmacoes_globais: o.obra_global_id ? map.get(o.obra_global_id)?.total_confirmacoes ?? 0 : 0,
-            })) as any
+              total_marcacoes: o.obra_global_id ? map.get(o.obra_global_id)?.total_marcacoes ?? 0 : 0,
+            })) as Obra[]
           }
         }
 
-        setObras(obrasCarregadas)
-
-        const cities = Array.from(new Set((data ?? []).map((o: any) => o.endereco_cidade)))
+        setObras(obrasData)
+        const cities = Array.from(new Set(obrasData.map((o) => o.endereco_cidade)))
         setCidades(cities.sort() as string[])
         setLoading(false)
       } catch (err: any) {
@@ -135,7 +199,10 @@ export default function RadarPage() {
       }
     }
     load()
-  }, [])
+  }, [supabase, geoPos, raioKm, filtroFase, filtroCidade])
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1) }, [busca, filtroFase, filtroCidade, raioKm])
 
   const obrasFiltradas = obras.filter((obra) => {
     const matchBusca =
@@ -146,6 +213,9 @@ export default function RadarPage() {
     const matchCidade = filtroCidade === 'todos' || obra.endereco_cidade === filtroCidade
     return matchBusca && matchFase && matchCidade
   })
+
+  const totalPages = Math.ceil(obrasFiltradas.length / PAGE_SIZE)
+  const paginatedObras = obrasFiltradas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   if (loading) {
     return (
@@ -241,16 +311,44 @@ export default function RadarPage() {
         ))}
       </div>
 
-      {/* Filtros */}
+      {/* Geo + Filtros */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por endereço, bairro..."
+            placeholder="Buscar por endereco, bairro..."
             className="pl-9"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
+        </div>
+        {/* Geo badge */}
+        <div className="flex items-center gap-2">
+          {geoPos && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 text-primary" />
+              <span>{geoPos.lat.toFixed(4)}, {geoPos.lng.toFixed(4)}</span>
+            </div>
+          )}
+          <select
+            className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+            value={raioKm}
+            onChange={(e) => setRaioKm(Number(e.target.value))}
+            disabled={!geoPos}
+          >
+            {RAIO_OPCOES.map((r) => (
+              <option key={r} value={r}>{r} km</option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={buscarLocalizacao}
+            disabled={geoLoading}
+            title="Atualizar localizacao"
+          >
+            <Crosshair className="h-4 w-4" />
+          </Button>
         </div>
         <div className="flex gap-2">
           <select
@@ -259,11 +357,11 @@ export default function RadarPage() {
             onChange={(e) => setFiltroFase(e.target.value)}
           >
             <option value="todos">Todas fases</option>
-            <option value="alvara">Alvará</option>
-            <option value="fundacao">Fundação</option>
+            <option value="alvara">Alvara</option>
+            <option value="fundacao">Fundacao</option>
             <option value="estrutura">Estrutura</option>
             <option value="acabamento">Acabamento</option>
-            <option value="concluida">Concluída</option>
+            <option value="concluida">Concluida</option>
           </select>
           <select
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
@@ -278,56 +376,64 @@ export default function RadarPage() {
         </div>
       </div>
 
-      {/* Mapa placeholder + Lista */}
+      {/* Mapa + Lista */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Mini mapa */}
+        {/* Mapa interativo */}
         <Card className="border-border/50 overflow-hidden">
           <CardContent className="p-0">
-            <div className="relative h-64 bg-[#EEF1F2]">
-              <svg className="absolute inset-0 w-full h-full opacity-30" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <pattern id="grid2" width="30" height="30" patternUnits="userSpaceOnUse">
-                    <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#0F1B24" strokeWidth="0.5"/>
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#grid2)" />
-                <line x1="0" y1="80" x2="100%" y2="80" stroke="#2E6F8E" strokeWidth="2"/>
-                <line x1="100" y1="0" x2="100" y2="100%" stroke="#2E6F8E" strokeWidth="2"/>
-                <line x1="200" y1="0" x2="200" y2="100%" stroke="#2E6F8E" strokeWidth="1.5"/>
-                <line x1="0" y1="150" x2="100%" y2="150" stroke="#2E6F8E" strokeWidth="1.5"/>
-              </svg>
-              {obrasFiltradas.slice(0, 15).map((obra, i) => {
-                const x = 10 + (i % 5) * 18 + Math.random() * 10
-                const y = 10 + Math.floor(i / 5) * 30 + Math.random() * 15
-                const score = obra.qualidade_score ?? 50
-                return (
-                  <div
-                    key={obra.id}
-                    className="absolute group"
-                    style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
-                  >
-                    <div
-                      className="h-5 w-5 rounded-full shadow-md cursor-pointer transition-transform group-hover:scale-150 flex items-center justify-center"
-                      style={{
-                        backgroundColor: score > 80 ? '#D9541F' : score > 60 ? '#D97706' : '#2E6F8E',
-                      }}
-                    />
+            {geoPos ? (
+              <RadarMap
+                center={geoPos}
+                markers={obrasFiltradas.map((o) => ({
+                  id: o.id,
+                  lat: o.lat ?? 0,
+                  lng: o.lng ?? 0,
+                  fase: o.fase_atual ?? o.fase_consolidada ?? null,
+                  score: o.qualidade_score ?? 50,
+                  titulo: `${o.endereco_logradouro}${o.endereco_numero ? `, ${o.endereco_numero}` : ''}`,
+                  distancia_km: o.distancia_km,
+                }))}
+                onMarkerClick={(id) => {
+                  const obras = document.querySelector(`[data-obra-id="${id}"]`)
+                  obras?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }}
+                className="h-64"
+              />
+            ) : (
+              <div className="h-64 flex items-center justify-center bg-[#EEF1F2]">
+                {geoLoading ? (
+                  <div className="text-center">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
+                    <p className="text-xs text-muted-foreground mt-2">Buscando localizacao...</p>
                   </div>
-                )
-              })}
-              <div className="absolute bottom-2 left-2 flex gap-3 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-full bg-primary"/>
-                  <span className="text-muted-foreground">Alto</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-full bg-amber-500"/>
-                  <span className="text-muted-foreground">Médio</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-full bg-secondary"/>
-                  <span className="text-muted-foreground">Normal</span>
-                </div>
+                ) : geoError ? (
+                  <div className="text-center px-4">
+                    <MapPin className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">{geoError}</p>
+                    <Button size="sm" variant="outline" onClick={buscarLocalizacao} className="mt-2">
+                      Tentar novamente
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <Crosshair className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">Clique em "buscar localizacao" para ver o mapa</p>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="absolute bottom-2 left-2 flex gap-3 text-xs bg-white/80 px-2 py-1 rounded">
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-[#D9541F]"/>
+                <span className="text-muted-foreground">Alto</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-[#D97706]"/>
+                <span className="text-muted-foreground">Medio</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-[#2E6F8E]"/>
+                <span className="text-muted-foreground">Normal</span>
               </div>
             </div>
           </CardContent>
@@ -347,8 +453,8 @@ export default function RadarPage() {
               </CardContent>
             </Card>
           ) : (
-            obrasFiltradas.slice(0, 10).map((obra) => (
-              <Link href={`/dashboard/radar/${obra.id}`} key={obra.id} className="block">
+            paginatedObras.map((obra) => (
+              <Link href={`/dashboard/radar/${obra.id}`} key={obra.id} data-obra-id={obra.id} className="block">
               <Card className="border-border/50 hover:shadow-md hover:border-primary/40 cursor-pointer transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -402,10 +508,45 @@ export default function RadarPage() {
               </Link>
             ))
           )}
-          {obrasFiltradas.length > 10 && (
-            <Button variant="outline" className="w-full">
-              Ver todas as {obrasFiltradas.length} obras
-            </Button>
+          {/* Pagination */}
+          {obrasFiltradas.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-muted-foreground">
+                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, obrasFiltradas.length)} de {obrasFiltradas.length} obras
+              </p>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const page = i + Math.max(1, currentPage - 2)
+                  if (page > totalPages) return null
+                  return (
+                    <Button
+                      key={page}
+                      size="sm"
+                      variant={page === currentPage ? 'default' : 'outline'}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  )
+                })}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Proxima
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </div>

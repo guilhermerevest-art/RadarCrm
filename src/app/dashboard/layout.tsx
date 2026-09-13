@@ -10,14 +10,20 @@ import {
   Building2,
   Settings,
   Bell,
+  MessageSquare,
   Search,
   LogOut,
   ChevronDown,
   Plus,
-  User,
-  X,
   TrendingUp,
   Trophy,
+  ChevronLeft,
+  ChevronRight,
+  Activity,
+  BarChart3,
+  Database,
+  Zap,
+  X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useRef, useState } from 'react'
@@ -25,15 +31,23 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import ThemeToggle from '@/components/theme-toggle'
 import { MinhaPontuacao } from '@/components/marcacao/MinhaPontuacao'
+import { Badge } from '@/components/ui/badge'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Visão Geral', icon: LayoutDashboard },
   { href: '/dashboard/radar', label: 'Radar de Obras', icon: MapPin },
   { href: '/dashboard/crm', label: 'CRM', icon: Users },
+  { href: '/dashboard/crm/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageSquare },
   { href: '/dashboard/deals', label: 'Oportunidades', icon: Building2 },
+  { href: '/dashboard/comerciais', label: 'Cad. Comerciais', icon: Database },
   { href: '/dashboard/pontuacao', label: 'Minhas Marcações', icon: Trophy },
   { href: '/dashboard/relatorios', label: 'Relatórios', icon: TrendingUp },
   { href: '/dashboard/configuracao', label: 'Configurações', icon: Settings },
+]
+
+const ADMIN_ITEMS = [
+  { href: '/dashboard/admin/etl', label: 'ETL / Fontes', icon: Zap },
 ]
 
 function UserMenu() {
@@ -63,41 +77,58 @@ function UserMenu() {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors"
+        className={cn(
+          'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium',
+          'hover:bg-accent/50 transition-all duration-200',
+          open && 'bg-accent/50'
+        )}
       >
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-white text-sm font-bold shadow-sm">
           {user?.nome?.[0] ?? user?.email?.[0] ?? 'U'}
         </div>
-        <span className="hidden sm:block font-medium text-foreground truncate max-w-32">
+        <span className="hidden lg:block font-medium text-foreground truncate max-w-36">
           {user?.nome ?? user?.email?.split('@')[0] ?? 'Usuário'}
         </span>
-        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        <ChevronDown className={cn(
+          'h-4 w-4 text-muted-foreground transition-transform duration-200',
+          open && 'rotate-180'
+        )} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border bg-paper shadow-lg z-50">
-          <div className="px-3 py-2 border-b">
-            <p className="text-xs font-medium truncate">{user?.email}</p>
+        <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border bg-card shadow-soft-lg z-50 animate-scale-in">
+          <div className="p-4 border-b bg-gradient-primary/5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-white text-lg font-bold shadow-md">
+                {user?.nome?.[0] ?? user?.email?.[0] ?? 'U'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold truncate">{user?.nome ?? 'Usuário'}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+            </div>
             {userId && (
-              <div className="mt-2">
+              <div className="mt-3 pt-3 border-t">
                 <MinhaPontuacao userId={userId} compact />
               </div>
             )}
           </div>
-          <Link
-            href="/dashboard/pontuacao"
-            onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
-          >
-            <Trophy className="h-4 w-4" />
-            Minhas Marcações
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </button>
+          <div className="p-2">
+            <Link
+              href="/dashboard/pontuacao"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+            >
+              <Trophy className="h-4 w-4" />
+              Minhas Marcações
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair da conta
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -106,34 +137,41 @@ function UserMenu() {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
       <aside
         className={cn(
-          'flex flex-col border-r bg-paper transition-all duration-200',
-          sidebarOpen ? 'w-64' : 'w-16'
+          'flex flex-col border-r bg-card transition-all duration-300 ease-out',
+          'relative z-20',
+          sidebarCollapsed ? 'w-[72px]' : 'w-64'
         )}
       >
         {/* Logo */}
-        <div className={cn('flex h-16 items-center border-b px-4', sidebarOpen ? 'justify-between' : 'justify-center')}>
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary flex-shrink-0">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="white" strokeWidth="2" strokeLinejoin="round"/>
-                <circle cx="12" cy="12" r="3" fill="white"/>
+        <div className={cn(
+          'flex h-16 items-center border-b transition-all duration-300',
+          sidebarCollapsed ? 'justify-center px-2' : 'px-5'
+        )}>
+          <Link href="/dashboard" className="flex items-center gap-3 group">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-white shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                <circle cx="12" cy="12" r="3" fill="currentColor"/>
               </svg>
             </div>
-            {sidebarOpen && (
-              <span className="font-heading text-lg font-bold text-dark">Radar Canteiro</span>
+            {!sidebarCollapsed && (
+              <div className="flex flex-col">
+                <span className="font-heading text-lg font-bold text-foreground leading-tight">Radar Canteiro</span>
+                <span className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">CRM</span>
+              </div>
             )}
           </Link>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
+        <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1 scrollbar-thin">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
             return (
@@ -141,28 +179,67 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'bg-gradient-primary text-white shadow-md'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 )}
               >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                {sidebarOpen && <span>{item.label}</span>}
+                <item.icon className={cn(
+                  'h-5 w-5 flex-shrink-0 transition-colors',
+                  isActive ? 'text-white' : ''
+                )} />
+                {!sidebarCollapsed && <span>{item.label}</span>}
               </Link>
             )
           })}
+
+          {/* Admin section */}
+          {ADMIN_ITEMS.length > 0 && (
+            <div className="pt-4 mt-4 border-t">
+              {!sidebarCollapsed && (
+                <p className="px-3 pb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Admin</p>
+              )}
+              {ADMIN_ITEMS.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-all duration-200',
+                      isActive
+                        ? 'bg-secondary/10 text-secondary border border-secondary/20'
+                        : 'text-muted-foreground/70 hover:text-foreground hover:bg-accent border border-transparent'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </nav>
 
-        {/* Bottom */}
+        {/* Bottom - Collapse button */}
         <div className="border-t p-2">
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex w-full items-center justify-center rounded-lg py-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className={cn(
+              'flex w-full items-center rounded-xl py-2.5 text-muted-foreground',
+              'hover:bg-accent hover:text-foreground transition-all duration-200',
+              sidebarCollapsed ? 'justify-center' : 'justify-center gap-2 px-3'
+            )}
           >
-            <svg className={cn('h-4 w-4 transition-transform', sidebarOpen ? '' : 'rotate-180')} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M15 18l-6-6 6-6"/>
-            </svg>
+            {sidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <>
+                <ChevronLeft className="h-4 w-4" />
+                <span className="text-sm">Recolher</span>
+              </>
+            )}
           </button>
         </div>
       </aside>
@@ -170,15 +247,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex h-16 items-center justify-between border-b bg-paper px-4 sm:px-6">
+        <header className="flex h-16 items-center justify-between border-b bg-card/80 backdrop-blur-sm px-4 sm:px-6">
           <div className="flex items-center gap-4 flex-1">
             <BuscaGlobal />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Link href="/dashboard/crm/novo">
-              <Button size="sm" className="hidden sm:flex">
-                <Plus className="h-4 w-4 mr-1" />
-                Novo Lead
+              <Button size="sm" className="shadow-sm">
+                <Plus className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Novo Lead</span>
               </Button>
             </Link>
             <SinoNotificacoes />
@@ -188,7 +265,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-background via-background to-muted/20">
           {children}
         </main>
       </div>
@@ -290,38 +367,50 @@ function SinoNotificacoes() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="relative rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        className={cn(
+          'relative rounded-xl p-2.5 transition-all duration-200',
+          open
+            ? 'bg-accent text-foreground'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+        )}
       >
         <Bell className="h-5 w-5" />
         {count > 0 && (
-          <span className="absolute right-0 top-0 h-5 w-5 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center animate-pulse">
+          <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center shadow-sm animate-pulse-soft">
             {count > 9 ? '9+' : count}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-80 rounded-lg border bg-paper shadow-xl z-50 max-h-96 overflow-y-auto">
-          <div className="px-4 py-3 border-b flex items-center justify-between">
-            <h3 className="font-heading font-bold text-sm">Notificações</h3>
-            <Link href="/dashboard/notificacoes" onClick={() => setOpen(false)} className="text-xs text-primary hover:underline">
+        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border bg-card shadow-soft-lg z-50 animate-scale-in overflow-hidden">
+          <div className="px-4 py-3 border-b bg-gradient-to-r from-primary/5 to-transparent flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" />
+              <h3 className="font-heading font-bold text-sm">Notificações</h3>
+              {count > 0 && <Badge variant="default" className="h-5 text-[10px] px-1.5">{count}</Badge>}
+            </div>
+            <Link href="/dashboard/notificacoes" onClick={() => setOpen(false)} className="text-xs text-primary hover:underline font-medium">
               Ver todas
             </Link>
           </div>
           {notifs.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              Nenhuma notificação.
+            <div className="p-8 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                <Bell className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">Nenhuma notificação no momento</p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="max-h-80 overflow-y-auto divide-y">
               {notifs.map(n => (
                 <Link
                   key={n.id}
                   href={n.link}
                   onClick={() => setOpen(false)}
-                  className="block px-4 py-3 hover:bg-muted transition-colors"
+                  className="block px-4 py-3 hover:bg-accent/50 transition-colors"
                 >
-                  <p className="text-sm truncate">{n.titulo}</p>
+                  <p className="text-sm font-medium truncate">{n.titulo}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {new Date(n.created_at).toLocaleString('pt-BR', {
                       day: '2-digit',
@@ -392,30 +481,37 @@ function BuscaGlobal() {
 
   return (
     <div ref={ref} className="relative hidden sm:block flex-1 max-w-md">
-      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
-      <Input
-        placeholder="Buscar obras, leads..."
-        className="pl-9 bg-muted/50 border-0 focus-visible:ring-1"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value)
-          setOpen(true)
-        }}
-        onFocus={() => setOpen(true)}
-      />
-      {query && (
-        <button
-          onClick={() => { setQuery(''); setOpen(false) }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      )}
+      <div className="relative">
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+        <Input
+          placeholder="Buscar obras, leads, empresas..."
+          className="pl-10 pr-10 bg-muted/50 border-transparent focus:bg-background focus:border-primary/30 focus:ring-2 focus:ring-primary/20"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+        />
+        {query && (
+          <button
+            onClick={() => { setQuery(''); setOpen(false) }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
 
       {open && query.length >= 2 && (
-        <div className="absolute top-full mt-1 w-full rounded-lg border bg-paper shadow-xl z-50 max-h-96 overflow-y-auto">
+        <div className="absolute top-full mt-2 w-full rounded-xl border bg-card shadow-soft-lg z-50 max-h-96 overflow-y-auto animate-fade-in">
           {loading ? (
-            <div className="p-4 text-sm text-muted-foreground text-center">Buscando...</div>
+            <div className="p-4 text-sm text-muted-foreground text-center">
+              <div className="flex items-center justify-center gap-2">
+                <Activity className="h-4 w-4 animate-pulse" />
+                Buscando...
+              </div>
+            </div>
           ) : total === 0 ? (
             <div className="p-4 text-sm text-muted-foreground text-center">
               Nenhum resultado para "{query}"
@@ -424,15 +520,15 @@ function BuscaGlobal() {
             <>
               {resultados.obras.length > 0 && (
                 <div>
-                  <div className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase bg-muted/30">
-                    📍 Obras ({resultados.obras.length})
+                  <div className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase bg-muted/30 flex items-center gap-2">
+                    <MapPin className="h-3 w-3" /> Obras ({resultados.obras.length})
                   </div>
                   {resultados.obras.map(o => (
                     <Link
                       key={o.id}
                       href={`/dashboard/radar/${o.id}`}
                       onClick={() => setOpen(false)}
-                      className="block px-3 py-2 hover:bg-muted"
+                      className="block px-3 py-2.5 hover:bg-accent/50 transition-colors"
                     >
                       <p className="text-sm font-medium truncate">{o.endereco_logradouro}</p>
                       <p className="text-xs text-muted-foreground">
@@ -444,15 +540,15 @@ function BuscaGlobal() {
               )}
               {resultados.leads.length > 0 && (
                 <div>
-                  <div className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase bg-muted/30">
-                    👤 Leads ({resultados.leads.length})
+                  <div className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase bg-muted/30 flex items-center gap-2">
+                    <Users className="h-3 w-3" /> Leads ({resultados.leads.length})
                   </div>
                   {resultados.leads.map(l => (
                     <Link
                       key={l.id}
                       href={`/dashboard/crm/${l.id}`}
                       onClick={() => setOpen(false)}
-                      className="block px-3 py-2 hover:bg-muted"
+                      className="block px-3 py-2.5 hover:bg-accent/50 transition-colors"
                     >
                       <p className="text-sm font-medium truncate">{l.nome}</p>
                       <p className="text-xs text-muted-foreground">

@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     const stored = localStorage.getItem('theme') as 'light' | 'dark' | null
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     const inicial = stored ?? (prefersDark ? 'dark' : 'light')
@@ -21,13 +24,32 @@ export default function ThemeToggle() {
     localStorage.setItem('theme', novo)
   }
 
+  if (!mounted) {
+    return (
+      <div className="h-9 w-9 rounded-lg" />
+    )
+  }
+
   return (
     <button
       onClick={toggle}
-      className="relative rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+      className={cn(
+        'relative rounded-xl p-2.5 transition-all duration-200',
+        'hover:bg-accent',
+        theme === 'dark' ? 'text-amber-400' : 'text-muted-foreground hover:text-foreground'
+      )}
       title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
     >
-      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      <div className="relative h-5 w-5">
+        <Sun className={cn(
+          'absolute inset-0 h-5 w-5 transition-all duration-300',
+          theme === 'dark' ? 'opacity-0 rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100'
+        )} />
+        <Moon className={cn(
+          'absolute inset-0 h-5 w-5 transition-all duration-300',
+          theme === 'dark' ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'
+        )} />
+      </div>
     </button>
   )
 }

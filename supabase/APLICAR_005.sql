@@ -1,28 +1,17 @@
 -- =============================================================================
--- BLOCO ÚNICO: Aplica migration 005 + cria função exec_sql para futuras
--- Cole TUDO no SQL Editor do Supabase e clique RUN (uma vez)
+-- APLICAR_005: Fase padrão = NULL (não identificada)
+-- Execute este arquivo no SQL Editor do Supabase
+-- A fase só existe quando o usuário marca/importa para o CRM dele
 -- =============================================================================
 
--- Helper para executar migrations via JS no futuro
-CREATE OR REPLACE FUNCTION exec_sql(sql TEXT)
-RETURNS VOID AS $$
-BEGIN
-  EXECUTE sql;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- =============================================================================
--- MIGRATION 005: Fase padrão = NULL (não identificada)
--- =============================================================================
-
--- 1. Tirar default 'alvara' de radar_obras.fase_atual
+-- 1. Permitir NULL em fase_atual (era NOT NULL com DEFAULT 'alvara')
 ALTER TABLE radar_obras
   ALTER COLUMN fase_atual DROP DEFAULT;
 
 ALTER TABLE radar_obras
   ALTER COLUMN fase_atual DROP NOT NULL;
 
--- 2. Colunas novas: controle de importação para CRM
+-- 2. Coluna para rastrear se a obra JÁ FOI IMPORTADA para o CRM
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -36,29 +25,3 @@ BEGIN
       ADD COLUMN lead_id UUID REFERENCES crm_leads(id);
   END IF;
 END $$;
-
-CREATE INDEX IF NOT EXISTS idx_obras_importada_crm
-  ON radar_obras(tenant_id, importada_crm_em);
-
--- 3. Trigger: obra_global atualizada -> espelha fase_macro_consolidada em radar_obras
-CREATE OR REPLACE FUNCTION sync_fase_consolidada_para_tenant()
-RETURNS TRIGGER AS $$
-BEGIN
-  UPDATE radar_obras
-  SET fase_atual = NEW.fase_macro_consolidada,
-      updated_at = NOW()
-  WHERE obra_global_id = NEW.id
-    AND fase_atual IS DISTINCT FROM NEW.fase_macro_consolidada;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS tr_sync_fase_tenant ON radar_obras_globais;
-CREATE TRIGGER tr_sync_fase_tenant
-  AFTER UPDATE OF fase_macro_consolidada ON radar_obras_globais
-  FOR EACH ROW
-  WHEN (OLD.fase_macro_consolidada IS DISTINCT FROM NEW.fase_macro_consolidada)
-  EXECUTE FUNCTION sync_fase_consolidada_para_tenant();
-
--- 4. Reset: obras que vieram com 'alvara' viram NULL (fase só conta quando marcada)
-UPDATE radar_obras SET fase_atual = NULL WHERE fase_atual = 'alvara';

@@ -4,6 +4,25 @@
 -- A obra "global" é compartilhada entre todos os tenants da plataforma
 -- =============================================================================
 
+-- 0. Limpar policies/triggers anteriores para tornar idempotente
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT tablename, policyname FROM pg_policies
+    WHERE schemaname = 'public' AND tablename IN (
+      'radar_user_pontuacao','radar_obras_globais','radar_obra_marcacoes','radar_obra_confirmacoes'
+    )
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
+  END LOOP;
+END $$;
+
+DROP TRIGGER IF EXISTS tr_recalcular_fase_marcacao ON radar_obra_marcacoes;
+DROP TRIGGER IF EXISTS tr_recalcular_fase_confirmacao ON radar_obra_confirmacoes;
+DROP TRIGGER IF EXISTS tr_pontuacao_criacao ON radar_obra_marcacoes;
+DROP TRIGGER IF EXISTS tr_pontuacao_confirmacao ON radar_obra_confirmacoes;
+
 -- 1. Catálogo de badges
 CREATE TABLE IF NOT EXISTS radar_badges (
   id TEXT PRIMARY KEY,

@@ -299,6 +299,40 @@ export default function LeadDetalhePage() {
                 </Button>
               </a>
             )}
+            {lead?.telefone && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const supabase = createClient()
+                  const session = (await supabase.auth.getSession()).data.session
+                  if (!session?.access_token) return
+                  // Envia mensagem via Evolution API (salva no banco)
+                  const res = await fetch('/api/whatsapp/send', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({
+                      telefone: lead.telefone,
+                      conteudo: `Olá ${lead.nome}, tudo bem? Vim do RadarCRM e gostaria de acompanhar sua obra.`,
+                      leadId: lead.id,
+                    }),
+                  })
+                  const result = await res.json()
+                  if (result.success) {
+                    toast({ title: '✅ Mensagem enviada via WhatsApp!' })
+                    router.push('/dashboard/whatsapp')
+                  } else {
+                    toast({ title: 'Erro', description: result.error, variant: 'destructive' })
+                  }
+                }}
+              >
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Chat no Radar
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
