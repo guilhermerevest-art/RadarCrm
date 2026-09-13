@@ -1,0 +1,25 @@
+# Scripts locais — não fazem parte do app Next.js
+scripts/
+
+# Dados CNO pesados
+cno.zip
+cno.csv
+*.csv
+
+# Arquivos de debug/histórico
+*.tsbuildinfo
+next-env.d.ts.bak
+
+# Ambiente (não vai pro Vercel de qualquer jeito, mas por garantia)
+.env.local
+.env.development.local
+.env*.local
+
+# Testes
+**/*.test.ts
+**/*.test.tsx
+**/__tests__/
+
+# Documentação interna
+*.md.bak
+supabase/migrations/README_*.md
