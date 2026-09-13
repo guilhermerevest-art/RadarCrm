@@ -244,6 +244,9 @@ export default async function VisaoGeralPage() {
         />
       </div>
 
+      {/* Gráficos */}
+      <GraficosObrasLeads tenantId={data?.tu?.tenant_id ?? ''} />
+
       {/* Conteúdo principal em 2 colunas */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Deals recentes */}
@@ -423,3 +426,160 @@ export default async function VisaoGeralPage() {
     </div>
   )
 }
+
+// ============================================================================
+// Componentes de gráficos (SVG inline, sem libs)
+// ============================================================================
+
+async function GraficosObrasLeads({ tenantId }: { tenantId: string }) {
+  const supabase = await createClient()
+
+  // Obras por cidade (top 10)
+  const { data: obrasPorCidade } = await supabase
+    .from('radar_obras')
+    .select('endereco_cidade')
+    .eq('tenant_id', tenantId)
+    .limit(1000)
+
+  const cidadeCount: Record<string, number> = {}
+  obrasPorCidade?.forEach(o => {
+    if (o.endereco_cidade) {
+      cidadeCount[o.endereco_cidade] = (cidadeCount[o.endereco_cidade] ?? 0) + 1
+    }
+  })
+  const topCidades = Object.entries(cidadeCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+
+  // Leads por status
+  const { data: leadsPorStatus } = await supabase
+    .from('crm_leads')
+    .select('status')
+    .eq('tenant_id', tenantId)
+
+  const statusCount: Record<string, number> = {}
+  leadsPorStatus?.forEach(l => {
+    statusCount[l.status] = (statusCount[l.status] ?? 0) + 1
+  })
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-2 mb-6">
+      {/* Obras por cidade */}
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="text-lg font-heading">📍 Top Cidades com Obras</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {topCidades.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Sem obras cadastradas ainda.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {topCidades.map(([cidade, qty], i) => {
+                const max = topCidades[0][1]
+                const pct = (qty / max) * 100
+                return (
+                  <div key={cidade}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-dark">{cidade}</span>
+                      <span className="text-sm font-bold text-primary">{qty}</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Leads por status - donut chart */}
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="text-lg font-heading">🎯 Leads por Estágio</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {Object.keys(statusCount).length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Sem leads cadastrados ainda.
+            </p>
+          ) : (
+            <div className="flex items-center justify-around gap-4">
+              <DonutChart data={statusCount} />
+              <div className="space-y-2 text-sm">
+                {Object.entries(statusCount).map(([status, qty]) => (
+                  <div key={status} className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${LEAD_COLORS[status] ?? 'bg-gray-400'}`} />
+                    <span className="capitalize">{status}</span>
+                    <span className="font-bold">{qty}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+const LEAD_COLORS: Record<string, string> = {
+  novo: 'bg-blue-500',
+  qualificado: 'bg-primary',
+  convertido: 'bg-green-500',
+  descarte: 'bg-gray-400',
+}
+
+function DonutChart({ data }: { data: Record<string, number> }) {
+  const entries = Object.entries(data)
+  const total = entries.reduce((sum, [, v]) => sum + v, 0)
+
+  let cumulative = 0
+  const radius = 50
+  const circumference = 2 * Math.PI * radius
+
+  return (
+    <svg width="140" height="140" viewBox="0 0 140 140">
+      <g transform="translate(70, 70) rotate(-90)">
+        {entries.map(([status, qty], i) => {
+          const pct = qty / total
+          const offset = (cumulative / total) * circumference
+          cumulative += qty
+          return (
+            <circle
+              key={status}
+              r={radius}
+              cx="0"
+              cy="0"
+              fill="none"
+              stroke={LEAD_COLOR_HEX[status] ?? '#9CA3AF'}
+              strokeWidth="20"
+              strokeDasharray={`${pct * circumference} ${circumference}`}
+              strokeDashoffset={-offset}
+            />
+          )
+        })}
+      </g>
+      <text x="70" y="70" textAnchor="middle" dominantBaseline="central" className="font-heading font-bold" fontSize="24" fill="#1F2937">
+        {total}
+      </text>
+      <text x="70" y="90" textAnchor="middle" dominantBaseline="central" className="font-medium" fontSize="10" fill="#6B7280">
+        leads
+      </text>
+    </svg>
+  )
+}
+
+const LEAD_COLOR_HEX: Record<string, string> = {
+  novo: '#3B82F6',
+  qualificado: '#D9541F',
+  convertido: '#10B981',
+  descarte: '#9CA3AF',
+}
+

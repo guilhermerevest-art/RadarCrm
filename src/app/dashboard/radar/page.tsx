@@ -112,6 +112,41 @@ export default function RadarPage() {
     baixo: obrasFiltradas.filter((o) => (o.qualidade_score ?? 50) <= 60).length,
   }
 
+  function exportarCSV() {
+    const headers = [
+      'Logradouro', 'Número', 'Bairro', 'Cidade', 'UF', 'CEP',
+      'Fase', 'Porte', 'Valor Estimado', 'Score', 'Status', 'Fonte', 'Data Início'
+    ]
+    const rows = obrasFiltradas.map(o => [
+      o.endereco_logradouro,
+      o.endereco_numero || '',
+      o.endereco_bairro || '',
+      o.endereco_cidade,
+      o.endereco_uf,
+      (o as any).endereco_cep ?? '',
+      o.fase_atual,
+      o.porte,
+      o.valor_estimado ?? '',
+      o.qualidade_score ?? 50,
+      o.status,
+      o.fonte,
+      '', // data_inicio se quiser puxar depois
+    ])
+
+    const csv = [
+      headers.join(';'),
+      ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';'))
+    ].join('\n')
+
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `radar-obras-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Header */}
@@ -123,9 +158,14 @@ export default function RadarPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportarCSV}
+            disabled={obrasFiltradas.length === 0}
+          >
             <Download className="h-4 w-4 mr-1" />
-            Exportar CSV
+            Exportar CSV ({obrasFiltradas.length})
           </Button>
         </div>
       </div>

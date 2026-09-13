@@ -14,6 +14,7 @@ import {
   Phone,
   Mail,
   MessageSquare,
+  LayoutGrid,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -114,6 +115,12 @@ export default function CrmPage() {
             {leads.length} leads · {leadsFiltrados.length} mostrados
           </p>
         </div>
+        <Link href="/dashboard/crm/quadro">
+          <Button variant="outline">
+            <LayoutGrid className="h-4 w-4 mr-1" />
+            Quadro
+          </Button>
+        </Link>
         <Link href="/dashboard/crm/novo">
           <Button>
             <Plus className="h-4 w-4 mr-1" />

@@ -1,0 +1,377 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import {
+  ArrowLeft,
+  Save,
+  Phone,
+  Mail,
+  MessageSquare,
+  Trash2,
+  Calendar,
+  User,
+  Building,
+  MapPin,
+  DollarSign,
+  Plus,
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
+
+type Lead = {
+  id: string
+  nome: string
+  empresa?: string
+  email?: string
+  telefone?: string
+  origem: string
+  status: string
+  endereco_cidade?: string
+  score_engajamento?: number
+  observacoes?: string
+  created_at: string
+  updated_at?: string
+}
+
+const STATUS_OPTIONS = [
+  { value: 'novo', label: 'Novo', color: 'bg-blue-100 text-blue-700' },
+  { value: 'qualificado', label: 'Qualificado', color: 'bg-primary/10 text-primary' },
+  { value: 'convertido', label: 'Convertido', color: 'bg-green-100 text-green-700' },
+  { value: 'descarte', label: 'Descarte', color: 'bg-gray-100 text-gray-500' },
+]
+
+export default function LeadDetalhePage() {
+  const params = useParams()
+  const router = useRouter()
+  const leadId = params.id as string
+  const supabase = createClient()
+  const { toast } = useToast()
+
+  const [lead, setLead] = useState<Lead | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [salvando, setSalvando] = useState(false)
+  const [novaNota, setNovaNota] = useState('')
+  const [notas, setNotas] = useState<Array<{ id: string; texto: string; created_at: string }>>([])
+
+  useEffect(() => {
+    async function carregar() {
+      const { data, error } = await supabase
+        .from('crm_leads')
+        .select('*')
+        .eq('id', leadId)
+        .single()
+
+      if (error) {
+        console.error(error)
+        toast({ title: 'Erro ao carregar lead', variant: 'destructive' })
+        router.push('/dashboard/crm')
+        return
+      }
+      setLead(data)
+      setLoading(false)
+
+      // Carrega notas do localStorage
+      const key = `lead_notes_${leadId}`
+      const stored = localStorage.getItem(key)
+      if (stored) setNotas(JSON.parse(stored))
+    }
+    carregar()
+  }, [leadId, router, supabase, toast])
+
+  async function salvar() {
+    if (!lead) return
+    setSalvando(true)
+    try {
+      const { error } = await supabase
+        .from('crm_leads')
+        .update({
+          nome: lead.nome,
+          empresa: lead.empresa,
+          email: lead.email,
+          telefone: lead.telefone,
+          status: lead.status,
+          endereco_cidade: lead.endereco_cidade,
+          score_engajamento: lead.score_engajamento,
+          observacoes: lead.observacoes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', lead.id)
+
+      if (error) throw error
+      toast({ title: '✅ Lead atualizado' })
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function deletar() {
+    if (!lead) return
+    if (!confirm(`Tem certeza que quer deletar ${lead.nome}?`)) return
+
+    try {
+      const { error } = await supabase.from('crm_leads').delete().eq('id', lead.id)
+      if (error) throw error
+      toast({ title: 'Lead deletado' })
+      router.push('/dashboard/crm')
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+    }
+  }
+
+  function adicionarNota() {
+    if (!novaNota.trim() || !lead) return
+    const nota = {
+      id: Date.now().toString(),
+      texto: novaNota,
+      created_at: new Date().toISOString(),
+    }
+    const updated = [nota, ...notas]
+    setNotas(updated)
+    localStorage.setItem(`lead_notes_${lead.id}`, JSON.stringify(updated))
+    setNovaNota('')
+    toast({ title: '📝 Nota adicionada' })
+  }
+
+  function whatsappUrl() {
+    if (!lead?.telefone) return null
+    const num = lead.telefone.replace(/\D/g, '')
+    return `https://wa.me/55${num}?text=${encodeURIComponent(`Olá ${lead.nome}, tudo bem?`)}`
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-muted-foreground">Carregando lead...</div>
+      </div>
+    )
+  }
+
+  if (!lead) {
+    return (
+      <div className="p-8 text-center">Lead não encontrado.</div>
+    )
+  }
+
+  const statusAtual = STATUS_OPTIONS.find(s => s.value === lead.status)
+
+  return (
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+      <div className="mb-6 flex items-center justify-between">
+        <Link href="/dashboard/crm">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Voltar
+          </Button>
+        </Link>
+        <Button variant="ghost" size="sm" onClick={deletar} className="text-red-600 hover:text-red-700">
+          <Trash2 className="h-4 w-4 mr-1" />
+          Deletar
+        </Button>
+      </div>
+
+      {/* Header */}
+      <Card className="mb-6">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className={statusAtual?.color}>
+                  {statusAtual?.label}
+                </Badge>
+                <Badge variant="outline">{lead.origem}</Badge>
+                <Badge variant="outline">Score: {lead.score_engajamento ?? 50}</Badge>
+              </div>
+              <h1 className="font-heading text-2xl font-bold text-dark">{lead.nome}</h1>
+              {lead.empresa && (
+                <p className="text-muted-foreground flex items-center gap-1 mt-1">
+                  <Building className="h-4 w-4" />
+                  {lead.empresa}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={salvar} disabled={salvando}>
+                <Save className="h-4 w-4 mr-2" />
+                {salvando ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            {lead.telefone && (
+              <a href={`tel:${lead.telefone}`}>
+                <Button variant="outline" size="sm">
+                  <Phone className="h-4 w-4 mr-1" />
+                  {lead.telefone}
+                </Button>
+              </a>
+            )}
+            {lead.email && (
+              <a href={`mailto:${lead.email}`}>
+                <Button variant="outline" size="sm">
+                  <Mail className="h-4 w-4 mr-1" />
+                  {lead.email}
+                </Button>
+              </a>
+            )}
+            {whatsappUrl() && (
+              <a href={whatsappUrl()!} target="_blank" rel="noreferrer">
+                <Button variant="outline" size="sm" className="text-green-600 hover:text-green-700">
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  WhatsApp
+                </Button>
+              </a>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-muted-foreground">Nome</label>
+                  <Input
+                    value={lead.nome}
+                    onChange={(e) => setLead({ ...lead, nome: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Empresa</label>
+                  <Input
+                    value={lead.empresa ?? ''}
+                    onChange={(e) => setLead({ ...lead, empresa: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Email</label>
+                  <Input
+                    value={lead.email ?? ''}
+                    onChange={(e) => setLead({ ...lead, email: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Telefone</label>
+                  <Input
+                    value={lead.telefone ?? ''}
+                    onChange={(e) => setLead({ ...lead, telefone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Cidade</label>
+                  <Input
+                    value={lead.endereco_cidade ?? ''}
+                    onChange={(e) => setLead({ ...lead, endereco_cidade: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Status</label>
+                  <select
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                    value={lead.status}
+                    onChange={(e) => setLead({ ...lead, status: e.target.value })}
+                  >
+                    {STATUS_OPTIONS.map(s => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Observações</label>
+                <textarea
+                  className="w-full min-h-[100px] px-3 py-2 rounded-md border border-input bg-background text-sm"
+                  value={lead.observacoes ?? ''}
+                  onChange={(e) => setLead({ ...lead, observacoes: e.target.value })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notas / Histórico */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Notas & Histórico</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 mb-4">
+                <Input
+                  placeholder="Adicionar nota..."
+                  value={novaNota}
+                  onChange={(e) => setNovaNota(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && adicionarNota()}
+                />
+                <Button onClick={adicionarNota}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {notas.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nenhuma nota ainda.
+                  </p>
+                ) : (
+                  notas.map((nota) => (
+                    <div key={nota.id} className="border-l-2 border-primary/30 pl-3 py-1">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {new Date(nota.created_at).toLocaleString('pt-BR')}
+                      </p>
+                      <p className="text-sm whitespace-pre-wrap">{nota.texto}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Metadados</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-xs">
+              <div>
+                <p className="text-muted-foreground">Criado em</p>
+                <p className="font-medium">{new Date(lead.created_at).toLocaleString('pt-BR')}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Atualizado em</p>
+                <p className="font-medium">
+                  {lead.updated_at ? new Date(lead.updated_at).toLocaleString('pt-BR') : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Score de engajamento</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary"
+                      style={{ width: `${lead.score_engajamento ?? 50}%` }}
+                    />
+                  </div>
+                  <span className="font-bold">{lead.score_engajamento ?? 50}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
