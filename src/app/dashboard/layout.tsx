@@ -173,7 +173,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1 scrollbar-thin">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+            const isActive = pathname === item.href ||
+              (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
             return (
               <Link
                 key={item.href}
@@ -201,7 +202,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="px-3 pb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Admin</p>
               )}
               {ADMIN_ITEMS.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href)
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                 return (
                   <Link
                     key={item.href}
