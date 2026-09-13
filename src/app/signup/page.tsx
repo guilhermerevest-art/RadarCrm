@@ -65,17 +65,28 @@ export default function SignupPage() {
 
     setLoading(true)
 
-    // Cria conta com email/senha
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password: senha,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
-          nome: nome || email.split('@')[0],
-        },
-      },
+    // Chama API server-side para criar conta (contorna bug do Supabase Auth)
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        password: senha,
+        nome: nome || email.split('@')[0],
+      }),
     })
+
+    const json = await res.json()
+
+    if (!res.ok || json.error) {
+      const errorMsg = json.error || 'Erro ao criar conta'
+      toast({ title: 'Erro ao criar conta', description: errorMsg, variant: 'destructive' })
+      setLoading(false)
+      return
+    }
+
+    const data = json
+    const error = null
 
     if (error) {
       toast({ title: 'Erro ao criar conta', description: error.message, variant: 'destructive' })

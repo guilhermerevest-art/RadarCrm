@@ -9,5 +9,5 @@ export default async function DashboardRootPage() {
     redirect('/login')
   }
 
-  redirect('/dashboard/visão-geral')
+  redirect('/dashboard/visao-geral')
 }
