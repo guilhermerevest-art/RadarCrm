@@ -370,3 +370,45 @@ export const WEBHOOK_EVENTOS = [
 ] as const
 
 export type WebhookEvento = typeof WEBHOOK_EVENTOS[number]
+
+// ---------------------------------------------------------------------------
+// Enriquecimento de CNPJ (BrasilAPI / publica.cnpj.ws)
+// ---------------------------------------------------------------------------
+
+export type FonteEnriquecimento = 'brasilapi' | 'publica.cnpj.ws' | 'nao_encontrado'
+
+export interface RadarObraEmpresa {
+  tenant_id: string
+  cnpj: string
+  cnpj_basico: string
+  razao_social: string | null
+  nome_fantasia: string | null
+  situacao_cadastral: string | null
+  natureza_juridica: string | null
+  cnae_principal: string | null
+  porte: string | null
+  capital_social: number | null
+  data_abertura: string | null
+  logradouro: string | null
+  bairro: string | null
+  municipio: string | null
+  uf: string | null
+  cep: string | null
+  telefone: string | null
+  email: string | null
+  fonte_enriquecimento: FonteEnriquecimento
+  last_enriched_at: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface RadarObraSocio {
+  id?: string
+  tenant_id: string
+  cnpj_empresa: string
+  nome: string
+  qualificacao: string | null
+  data_entrada: string | null
+  faixa_etaria: string | null
+  created_at?: string
+}
