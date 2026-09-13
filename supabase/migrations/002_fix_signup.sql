@@ -1,28 +1,15 @@
 -- =============================================================================
--- DIAGNÓSTICO COMPLETO
+-- DIAGNÓSTICO SEM ACESSO A auth.users
+-- Apenas queries permitidas no schema public
 -- =============================================================================
 
--- 1. Triggers em auth.users
-SELECT
-  trigger_name,
-  event_manipulation,
-  action_timing,
-  action_statement
-FROM information_schema.triggers
-WHERE event_object_schema = 'auth'
-  AND event_object_table = 'users';
+-- 1. Tabelas existentes no schema public
+SELECT table_schema, table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
 
--- 2. Funções no schema public que fazem referência a auth.users
-SELECT
-  n.nspname AS schema,
-  p.proname AS function_name,
-  pg_get_functiondef(p.oid) AS definition
-FROM pg_proc p
-JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE n.nspname = 'public'
-  AND pg_get_functiondef(p.oid) ILIKE '%auth.users%';
-
--- 3. RLS policies em todas as tabelas
+-- 2. RLS policies em public
 SELECT
   schemaname,
   tablename,
@@ -30,13 +17,23 @@ SELECT
   cmd,
   qual
 FROM pg_policies
-WHERE schemaname IN ('public', 'auth');
+WHERE schemaname = 'public';
 
--- 4. Tabelas existentes
-SELECT table_schema, table_name
-FROM information_schema.tables
-WHERE table_schema = 'public'
-ORDER BY table_name;
+-- 3. Funções que NÃO fazem referência a auth.users
+SELECT
+  n.nspname AS schema,
+  p.proname AS function_name
+FROM pg_proc p
+JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE n.nspname = 'public'
+ORDER BY p.proname;
 
-
-
+-- 4. Triggers no schema public
+SELECT
+  trigger_name,
+  event_object_table,
+  action_timing,
+  event_manipulation
+FROM information_schema.triggers
+WHERE trigger_schema = 'public'
+ORDER BY event_object_table, trigger_name;
