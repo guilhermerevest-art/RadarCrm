@@ -65,6 +65,7 @@ const FASE_COLORS: Record<string, { bg: string; text: string }> = {
 const FASE_NAO_IDENTIFICADA = { bg: 'bg-slate-100', text: 'text-slate-500' }
 
 const RAIO_OPCOES = [10, 25, 50, 100]
+const UBERLANDIA_CENTER = { lat: -18.9186, lng: -48.2772 }
 
 export default function RadarPage() {
   const [obras, setObras] = useState<Obra[]>([])
@@ -74,7 +75,7 @@ export default function RadarPage() {
   const [filtroCidade, setFiltroCidade] = useState('todos')
   const [cidades, setCidades] = useState<string[]>([])
   const [tenantId, setTenantId] = useState<string | null>(null)
-  const [geoPos, setGeoPos] = useState<GeoPos | null>(null)
+  const [geoPos, setGeoPos] = useState<GeoPos | null>(UBERLANDIA_CENTER)
   const [raioKm, setRaioKm] = useState(50)
   const [geoLoading, setGeoLoading] = useState(false)
   const [geoError, setGeoError] = useState<string | null>(null)
@@ -84,25 +85,25 @@ export default function RadarPage() {
 
   // Pegar localização do navegador
   const buscarLocalizacao = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGeoError('Geolocalizacao nao disponivel')
-      return
+    // Primeiro tenta geolocalização do navegador
+    if (navigator.geolocation) {
+      setGeoLoading(true)
+      setGeoError(null)
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGeoPos({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+          setGeoLoading(false)
+        },
+        () => {
+          // Fallback: Uberlandia
+          setGeoPos(UBERLANDIA_CENTER)
+          setGeoLoading(false)
+        },
+        { timeout: 5000 }
+      )
+    } else {
+      setGeoPos(UBERLANDIA_CENTER)
     }
-    setGeoLoading(true)
-    setGeoError(null)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGeoPos({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setGeoLoading(false)
-      },
-      (err) => {
-        setGeoError(err.message)
-        setGeoLoading(false)
-        // Fallback: Uberlandia
-        setGeoPos({ lat: -18.9186, lng: -48.2772 })
-      },
-      { timeout: 8000 }
-    )
   }, [])
 
   useEffect(() => { buscarLocalizacao() }, [buscarLocalizacao])
@@ -151,17 +152,17 @@ export default function RadarPage() {
           }
         }
 
-        // Se nao tem geo ou falha, carregar todas
+        // Se não tem geo ou falha, carregar todas
         if (obrasData.length === 0) {
           const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 10000)
+          const timeoutId = setTimeout(() => controller.abort(), 15000)
 
           const { data, error } = await supabase
             .from('radar_obras')
             .select('*')
             .eq('tenant_id', tu.tenant_id)
-            .order('created_at', { ascending: false })
-            .limit(200)
+            .order('qualidade_score', { ascending: false })
+            .limit(500)
 
           clearTimeout(timeoutId)
           if (error) {
@@ -279,7 +280,7 @@ export default function RadarPage() {
         <div>
           <h1 className="font-heading text-2xl font-bold text-dark">Radar de Obras</h1>
           <p className="text-sm text-muted-foreground">
-            {obras.length} obras · {obrasPorScore.alto} alto potencial · últimas 24h
+            {obras.length} obras · {obrasFiltradas.length} mostradas · Uberlândia/MG
           </p>
         </div>
         <div className="flex gap-2">
@@ -327,7 +328,7 @@ export default function RadarPage() {
           {geoPos && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="h-3 w-3 text-primary" />
-              <span>{geoPos.lat.toFixed(4)}, {geoPos.lng.toFixed(4)}</span>
+              <span>Uberlândia</span>
             </div>
           )}
           <select

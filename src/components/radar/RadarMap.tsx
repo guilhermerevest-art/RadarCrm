@@ -3,6 +3,9 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet.markercluster'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 
 type MarkerData = {
   id: string
@@ -31,19 +34,6 @@ function getMarkerColor(score: number, fase: string | null): string {
   return '#2E6F8E'
 }
 
-function createMarkerIcon(color: string): L.DivIcon {
-  return L.divIcon({
-    html: `<div style="
-      width:14px;height:14px;border-radius:50%;
-      background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);
-      cursor:pointer;
-    "></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-    className: '',
-  })
-}
-
 function createUserIcon(): L.DivIcon {
   return L.divIcon({
     html: `<div style="
@@ -69,17 +59,18 @@ type Props = {
 
 export function RadarMap({ markers, center, onMarkerClick, className = 'h-64' }: Props) {
   const mapRef = useRef<L.Map | null>(null)
+  const clusterRef = useRef<L.MarkerClusterGroup | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const markersRef = useRef<L.Marker[]>([])
-  const centerRef = useRef(center)
+  const userMarkerRef = useRef<L.Marker | null>(null)
+  const circleRef = useRef<L.Circle | null>(null)
 
   // Inicializar mapa
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
 
     mapRef.current = L.map(containerRef.current, {
-      center: [centerRef.current.lat, centerRef.current.lng],
-      zoom: 13,
+      center: [center.lat, center.lng],
+      zoom: 12,
       zoomControl: true,
       attributionControl: true,
     })
@@ -89,37 +80,72 @@ export function RadarMap({ markers, center, onMarkerClick, className = 'h-64' }:
       maxZoom: 19,
     }).addTo(mapRef.current)
 
+    // Criar grupo de clusters
+    clusterRef.current = L.markerClusterGroup({
+      chunkedLoading: true,
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount()
+        const size = count < 10 ? 'small' : count < 100 ? 'medium' : 'large'
+
+        return L.divIcon({
+          html: `<div style="
+            background:#2E6F8E;color:white;border-radius:50%;
+            width:${size === 'small' ? 30 : size === 'medium' ? 40 : 50}px;
+            height:${size === 'small' ? 30 : size === 'medium' ? 40 : 50}px;
+            display:flex;align-items:center;justify-content:center;
+            font-weight:bold;font-size:${size === 'small' ? 10 : size === 'medium' ? 12 : 14}px;
+            border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);
+          ">${count}</div>`,
+          className: 'marker-cluster',
+          iconSize: L.point(size === 'small' ? 30 : size === 'medium' ? 40 : 50, size === 'small' ? 30 : size === 'medium' ? 40 : 50),
+        })
+      },
+    })
+
+    mapRef.current.addLayer(clusterRef.current)
+
     return () => {
       mapRef.current?.remove()
       mapRef.current = null
+      clusterRef.current = null
     }
   }, [])
 
   // Reposicionar mapa quando center mudar
   useEffect(() => {
     if (mapRef.current) {
-      mapRef.current.setView([center.lat, center.lng], 13, { animate: true })
+      mapRef.current.setView([center.lat, center.lng], 12, { animate: true })
     }
   }, [center.lat, center.lng])
 
   // Atualizar marcadores
   useEffect(() => {
     const map = mapRef.current
-    if (!map) return
+    const cluster = clusterRef.current
+    if (!map || !cluster) return
 
-    // Remover marcadores antigos
-    markersRef.current.forEach((m) => m.remove())
-    markersRef.current = []
+    // Limpar clusters
+    cluster.clearLayers()
 
-    // Adicionar marcador do usuario
+    // Marcador do usuário
+    if (userMarkerRef.current) {
+      map.removeLayer(userMarkerRef.current)
+    }
+    if (circleRef.current) {
+      map.removeLayer(circleRef.current)
+    }
+
     const userIcon = createUserIcon()
-    const userMarker = L.marker([center.lat, center.lng], { icon: userIcon })
+    userMarkerRef.current = L.marker([center.lat, center.lng], { icon: userIcon })
       .addTo(map)
-      .bindPopup('Sua localizacao')
+      .bindPopup('Uberlândia - Centro')
 
     // Raio visual
-    L.circle([center.lat, center.lng], {
-      radius: 2000,
+    circleRef.current = L.circle([center.lat, center.lng], {
+      radius: 5000,
       color: '#3B82F6',
       fillColor: '#3B82F6',
       fillOpacity: 0.05,
@@ -127,27 +153,46 @@ export function RadarMap({ markers, center, onMarkerClick, className = 'h-64' }:
       dashArray: '5,5',
     }).addTo(map)
 
-    // Marcadores de obras
-    markers.forEach((obra) => {
-      if (!obra.lat || !obra.lng) return
+    // Filtrar marcadores com coordenadas válidas
+    const validMarkers = markers.filter((obra) => obra.lat && obra.lng && !isNaN(obra.lat) && !isNaN(obra.lng))
 
-      const color = getMarkerColor(obra.score, obra.fase)
-      const icon = createMarkerIcon(color)
-      const marker = L.marker([obra.lat, obra.lng], { icon })
-        .addTo(map)
+    // Calcular centro baseado nos marcadores ou usar centro padrão
+    if (validMarkers.length > 0) {
+      const lats = validMarkers.map((m) => m.lat)
+      const lngs = validMarkers.map((m) => m.lng)
+      const bounds = L.latLngBounds(lats.map((lat, i) => [lat, lngs[i]] as [number, number]))
 
-      const popupText = `
-        <div style="font-size:12px;min-width:150px">
-          <strong>${obra.titulo}</strong><br/>
-          <span style="color:#666">${obra.fase || 'Sem fase'}</span>
-          ${obra.distancia_km ? `<br/><small>Dist: ${obra.distancia_km} km</small>` : ''}
-          <br/><small>Score: ${obra.score}</small>
-        </div>
-      `
-      marker.bindPopup(popupText)
-      marker.on('click', () => onMarkerClick?.(obra.id))
-      markersRef.current.push(marker)
-    })
+      // Adicionar marcadores ao cluster
+      validMarkers.forEach((obra) => {
+        const color = getMarkerColor(obra.score, obra.fase)
+        const icon = L.divIcon({
+          html: `<div style="
+            width:12px;height:12px;border-radius:50%;
+            background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);
+            cursor:pointer;
+          "></div>`,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+          className: '',
+        })
+
+        const marker = L.marker([obra.lat, obra.lng], { icon })
+        const popupText = `
+          <div style="font-size:12px;min-width:150px;max-width:250px">
+            <strong style="font-size:11px">${obra.titulo}</strong><br/>
+            <span style="color:#666">${obra.fase || 'Sem fase'}</span>
+            ${obra.distancia_km ? `<br/><small>Dist: ${obra.distancia_km?.toFixed(1)} km</small>` : ''}
+            <br/><small>Score: ${obra.score}</small>
+          </div>
+        `
+        marker.bindPopup(popupText)
+        marker.on('click', () => onMarkerClick?.(obra.id))
+        cluster.addLayer(marker)
+      })
+
+      // Ajustar visualização para mostrar todos os marcadores
+      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 })
+    }
   }, [markers, center.lat, center.lng, onMarkerClick])
 
   return (
