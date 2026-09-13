@@ -13,9 +13,11 @@ import {
   Download,
   ThumbsUp,
   Crosshair,
+  Route,
 } from 'lucide-react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { RadarRotaMiniWidget } from '@/components/radar/RadarRotaDia'
 
 const RadarMap = dynamic(
   () => import('@/components/radar/RadarMap').then((m) => m.RadarMap),
@@ -284,6 +286,12 @@ export default function RadarPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link href="/dashboard/radar/rota">
+            <Button variant="outline" size="sm">
+              <Route className="h-4 w-4 mr-1" />
+              Rota do Dia
+            </Button>
+          </Link>
           <Button
             variant="outline"
             size="sm"
@@ -296,8 +304,8 @@ export default function RadarPage() {
         </div>
       </div>
 
-      {/* Score overview */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Score overview + Rota */}
+      <div className="grid gap-4 lg:grid-cols-4">
         {[
           { label: 'Alto potencial', count: obrasPorScore.alto, color: 'text-primary' },
           { label: 'Médio potencial', count: obrasPorScore.medio, color: 'text-amber-600' },
@@ -310,6 +318,7 @@ export default function RadarPage() {
             </CardContent>
           </Card>
         ))}
+        <RadarRotaMiniWidget className="col-span-1" />
       </div>
 
       {/* Geo + Filtros */}

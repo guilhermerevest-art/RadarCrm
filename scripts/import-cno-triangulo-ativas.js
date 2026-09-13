@@ -125,7 +125,7 @@ async function main() {
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
 
   let header = null
-  let COL_CNO, COL_MUNICIPIO, COL_UF, COL_CEP, COL_LOGRADOURO, COL_NUMERO, COL_BAIRRO, COL_DATA, COL_AREA, COL_SITUACAO, COL_NOME_RESP, COL_DATA_SITUACAO
+  let COL_CNO, COL_MUNICIPIO, COL_UF, COL_CEP, COL_LOGRADOURO, COL_NUMERO, COL_BAIRRO, COL_DATA, COL_AREA, COL_SITUACAO, COL_NOME_RESP, COL_DATA_SITUACAO, COL_NI, COL_QUALIF
   let totalLinhas = 0
   let totalFiltradas = 0
   let totalAtivas = 0
@@ -151,7 +151,9 @@ async function main() {
       COL_SITUACAO = idx('situação') >= 0 ? idx('situação') : idx('situacao')
       COL_NOME_RESP = idx('nome')
       COL_DATA_SITUACAO = idx('data da sit')
-      console.log(`   CNO=${COL_CNO}, Munic=${COL_MUNICIPIO}, UF=${COL_UF}, Sit=${COL_SITUACAO}`)
+      COL_NI = idx('ni do respons') >= 0 ? idx('ni do respons') : -1
+      COL_QUALIF = idx('qualifica') >= 0 ? idx('qualifica') : -1
+      console.log(`   CNO=${COL_CNO}, Munic=${COL_MUNICIPIO}, UF=${COL_UF}, Sit=${COL_SITUACAO}, NI=${COL_NI}`)
       console.log('')
       continue
     }
@@ -192,11 +194,16 @@ async function main() {
       status: 'ativa',
       qualidade_score: 50,
       hash_deduplicacao: hash,
+      responsavel_nome: cols[COL_NOME_RESP]?.slice(0, 200) || null,
+      responsavel_documento: COL_NI >= 0 ? cols[COL_NI]?.replace(/\D/g, '').slice(0, 18) || null : null,
+      responsavel_qualificacao: COL_QUALIF >= 0 ? cols[COL_QUALIF]?.slice(0, 50) || null : null,
       raw_payload: {
         cno: cols[COL_CNO],
         situacao,
         data_situacao: cols[COL_DATA_SITUACAO],
-        responsavel: cols[COL_NOME_RESP]?.slice(0, 100),
+        responsavel: cols[COL_NOME_RESP]?.slice(0, 200),
+        responsavel_documento: COL_NI >= 0 ? cols[COL_NI]?.replace(/\D/g, '').slice(0, 18) : null,
+        responsavel_qualificacao: COL_QUALIF >= 0 ? cols[COL_QUALIF]?.slice(0, 50) : null,
         area_m2: area,
       },
     })

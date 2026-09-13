@@ -7,7 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "import:cno": "tsx scripts/import-cno.ts"
+    "import:cno": "tsx scripts/import-cno.ts",
+    "etl:pncp": "tsx scripts/etl/pncp.ts",
+    "etl:alvara": "tsx scripts/etl/alvaras/uberlandia.ts",
+    "etl:alvara:uberlandia": "tsx scripts/etl/alvaras/uberlandia.ts",
+    "etl:alvara:uberaba": "tsx scripts/etl/alvaras/uberaba.ts",
+    "etl:semad": "tsx scripts/etl/semad-mg.ts",
+    "etl:all": "tsx scripts/etl/index.ts all",
+    "etl:status": "tsx scripts/etl/status.ts",
+    "etl:geocode": "tsx scripts/etl/geocode-batch.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -20,6 +28,7 @@
     "@radix-ui/react-select": "^2.1.1",
     "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-slot": "^1.1.0",
+    "@radix-ui/react-switch": "^1.3.7",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.1.2",
@@ -27,6 +36,8 @@
     "@supabase/supabase-js": "^2.44.4",
     "@types/leaflet": "^1.9.22",
     "@types/leaflet.markercluster": "^1.5.6",
+    "@types/stripe": "^8.0.416",
+    "@upstash/redis": "^1.34.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -39,6 +50,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.52.1",
+    "stripe": "^22.6.2",
     "tailwind-merge": "^2.4.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.23.8"

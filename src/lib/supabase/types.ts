@@ -308,3 +308,65 @@ export interface BadgeInfo {
   criterio_pontos: number
   criterio_confirmacoes: number
 }
+
+// ---------------------------------------------------------------------------
+// API Keys (Épico 12 - API Pública e Escala)
+// ---------------------------------------------------------------------------
+export interface ApiKey {
+  id: string
+  tenant_id: string
+  nome: string
+  prefixo: string
+  hash_argon2: string
+  escopo: string[]
+  ativo: boolean
+  ultimo_uso: string | null
+  expira_em: string | null
+  created_at: string
+  created_by: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Webhooks (Épico 12 - API Pública e Escala)
+// ---------------------------------------------------------------------------
+export interface WebhookTenant {
+  id: string
+  tenant_id: string
+  nome: string
+  url: string
+  secret_hmac: string
+  eventos: string[]
+  ativo: boolean
+  created_at: string
+  created_by: string | null
+}
+
+export interface WebhookEventoEnviado {
+  id: string
+  webhook_id: string
+  tenant_id: string
+  evento: string
+  payload: Record<string, unknown>
+  tentativa: number
+  status: 'sucesso' | 'falha' | 'dlq'
+  status_code: number | null
+  resposta: string | null
+  erro: string | null
+  created_at: string
+}
+
+// Eventos disponíveis para webhooks
+export const WEBHOOK_EVENTOS = [
+  'obra.nova',
+  'obra.atualizada',
+  'lead.criado',
+  'lead.atualizado',
+  'lead.convertido',
+  'deal.criado',
+  'deal.ganho',
+  'deal.perdido',
+  'visita.registrada',
+  'whatsapp.mensagem',
+] as const
+
+export type WebhookEvento = typeof WEBHOOK_EVENTOS[number]

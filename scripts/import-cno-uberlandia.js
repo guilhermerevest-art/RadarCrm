@@ -82,7 +82,7 @@ async function main() {
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
 
   let header = null
-  let COL_CNO, COL_MUNICIPIO, COL_UF, COL_CEP, COL_LOGRADOURO, COL_NUMERO, COL_BAIRRO, COL_DATA, COL_AREA
+  let COL_CNO, COL_MUNICIPIO, COL_UF, COL_CEP, COL_LOGRADOURO, COL_NUMERO, COL_BAIRRO, COL_DATA, COL_AREA, COL_NOME, COL_NI, COL_QUALIF
   let totalLinhas = 0
   let totalUberlandia = 0
   let totalInseridas = 0
@@ -104,6 +104,10 @@ async function main() {
       COL_BAIRRO = idx('bairro')
       COL_DATA = idx('data de in')
       COL_AREA = idx('área total') >= 0 ? idx('área total') : idx('rea total')
+      COL_NOME = idx('nome') >= 0 ? idx('nome') : -1
+      COL_NI = idx('ni do respons') >= 0 ? idx('ni do respons') : idx('ni_respons')
+      COL_QUALIF = idx('qualifica') >= 0 ? idx('qualifica') : -1
+      console.log(`   NI resp=${COL_NI}, Nome resp=${COL_NOME}, Qualif=${COL_QUALIF}`)
       console.log('')
       continue
     }
@@ -146,6 +150,16 @@ async function main() {
       status: 'ativa',
       qualidade_score: 50,
       hash_deduplicacao: hash,
+      descricao: ((COL_NOME >= 0 ? cols[COL_NOME] : '') + ' - ' + (cols[COL_NOME] || '')).substring(0, 500),
+      responsavel_nome: COL_NOME >= 0 ? (cols[COL_NOME] || null)?.slice(0, 200) : null,
+      responsavel_documento: COL_NI >= 0 ? cols[COL_NI]?.replace(/\D/g, '').slice(0, 18) || null : null,
+      responsavel_qualificacao: COL_QUALIF >= 0 ? cols[COL_QUALIF]?.slice(0, 50) || null : null,
+      raw_payload: {
+        responsavel: COL_NOME >= 0 ? cols[COL_NOME]?.slice(0, 200) : null,
+        responsavel_documento: COL_NI >= 0 ? cols[COL_NI]?.replace(/\D/g, '').slice(0, 18) : null,
+        responsavel_qualificacao: COL_QUALIF >= 0 ? cols[COL_QUALIF]?.slice(0, 50) : null,
+        area_m2: area,
+      },
     })
 
     if (batch.length >= BATCH_SIZE) {

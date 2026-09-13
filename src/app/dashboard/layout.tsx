@@ -24,6 +24,9 @@ import {
   Database,
   Zap,
   X,
+  CreditCard,
+  Shield,
+  HelpCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useRef, useState } from 'react'
@@ -36,17 +39,31 @@ import { Badge } from '@/components/ui/badge'
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Visão Geral', icon: LayoutDashboard },
   { href: '/dashboard/radar', label: 'Radar de Obras', icon: MapPin },
-  { href: '/dashboard/crm', label: 'CRM', icon: Users },
-  { href: '/dashboard/crm/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageSquare },
+  { href: '/dashboard/crm', label: 'CRM', icon: Users, submenu: [
+      { href: '/dashboard/crm', label: 'Leads', icon: Users },
+      { href: '/dashboard/crm/quadro', label: 'Pipeline', icon: TrendingUp },
+      { href: '/dashboard/crm/calendario', label: 'Calendário', icon: Activity },
+      { href: '/dashboard/crm/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: '/dashboard/crm/automacoes', label: 'Automações', icon: Zap },
+    ]},
+  { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageSquare, submenu: [
+      { href: '/dashboard/whatsapp', label: 'Conversas', icon: MessageSquare },
+      { href: '/dashboard/whatsapp/alertas', label: 'Alertas', icon: Bell },
+    ]},
   { href: '/dashboard/deals', label: 'Oportunidades', icon: Building2 },
   { href: '/dashboard/comerciais', label: 'Cad. Comerciais', icon: Database },
   { href: '/dashboard/pontuacao', label: 'Minhas Marcações', icon: Trophy },
   { href: '/dashboard/relatorios', label: 'Relatórios', icon: TrendingUp },
+  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/dashboard/configuracao', label: 'Configurações', icon: Settings },
 ]
 
+const SUPPORT_ITEMS = [
+  { href: '/help', label: 'Central de Ajuda', icon: HelpCircle, external: true },
+]
+
 const ADMIN_ITEMS = [
+  { href: '/dashboard/admin', label: 'Admin Panel', icon: Shield },
   { href: '/dashboard/admin/etl', label: 'ETL / Fontes', icon: Zap },
 ]
 
@@ -172,9 +189,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1 scrollbar-thin">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.map((item, idx) => {
             const isActive = pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
+
+            // Verificar se algum submenu está ativo
+            const submenuActive = item.submenu?.some(sub =>
+              pathname === sub.href || pathname.startsWith(sub.href + '/')
+            )
+
+            if (item.submenu) {
+              return (
+                <div key={item.href}>
+                  <div className={cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                    isActive || submenuActive
+                      ? 'bg-gradient-primary text-white shadow-md'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  )}>
+                    <item.icon className={cn(
+                      'h-5 w-5 flex-shrink-0 transition-colors',
+                      isActive || submenuActive ? 'text-white' : ''
+                    )} />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </div>
+                  {!sidebarCollapsed && item.submenu.map(sub => (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      className={cn(
+                        'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-200 ml-4',
+                        pathname === sub.href || pathname.startsWith(sub.href + '/')
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      )}
+                    >
+                      <sub.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{sub.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              )
+            }
+
             return (
               <Link
                 key={item.href}
@@ -194,6 +251,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
             )
           })}
+
+          {/* Support section */}
+          {SUPPORT_ITEMS.length > 0 && (
+            <div className="pt-4 mt-4 border-t">
+              {!sidebarCollapsed && (
+                <p className="px-3 pb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Suporte</p>
+              )}
+              {SUPPORT_ITEMS.map((item) => {
+                const isActive = pathname === item.href
+                const Icon = item.icon
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target={item.external ? '_blank' : undefined}
+                    rel={item.external ? 'noopener noreferrer' : undefined}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-all duration-200',
+                      isActive
+                        ? 'bg-secondary/10 text-secondary border border-secondary/20'
+                        : 'text-muted-foreground/70 hover:text-foreground hover:bg-accent border border-transparent'
+                    )}
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </a>
+                )
+              })}
+            </div>
+          )}
 
           {/* Admin section */}
           {ADMIN_ITEMS.length > 0 && (

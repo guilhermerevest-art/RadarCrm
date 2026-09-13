@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Copy,
   Check,
+  TrendingUp,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { CardConfirmacoes } from '@/components/marcacao/CardConfirmacoes'
+import { RadarScoreBadge, RadarScoreBreakdown } from '@/components/radar/RadarScoreBadge'
 
 type Obra = {
   id: string
@@ -47,6 +49,9 @@ type Obra = {
   tenant_id?: string
   obra_global_id?: string
   hash_deduplicacao?: string
+  responsavel_nome?: string
+  responsavel_documento?: string
+  responsavel_qualificacao?: string
 }
 
 const FASE_LABELS: Record<string, string> = {
@@ -120,19 +125,22 @@ export default function ObraDetalhePage() {
     if (!obra) return
     setGerandoLead(true)
     try {
+      const nomeResponsavel = obra.responsavel_nome || obra.raw_payload?.responsavel
+      const documento = obra.responsavel_documento || obra.raw_payload?.responsavel_documento
       const { data, error } = await supabase
         .from('crm_leads')
         .insert({
           tenant_id: obra.raw_payload?.tenant_id,
           origem: 'radar',
-          nome: obra.raw_payload?.responsavel || `Obra em ${obra.endereco_cidade}`,
+          nome: nomeResponsavel || `Obra em ${obra.endereco_cidade}`,
           email: null,
           telefone: null,
-          empresa: obra.raw_payload?.responsavel || null,
+          empresa: nomeResponsavel || null,
+          documento: documento || null,
           endereco_cidade: obra.endereco_cidade,
           score_engajamento: obra.qualidade_score || 50,
           status: 'novo',
-          observacoes: `Lead gerado automaticamente da obra CNO ${obra.fonte_id || obra.id}.\nEndereço: ${obra.endereco_logradouro}${obra.endereco_numero ? ', ' + obra.endereco_numero : ''}, ${obra.endereco_cidade}/${obra.endereco_uf}${obra.endereco_cep ? ' - CEP ' + obra.endereco_cep : ''}\nValor estimado: ${obra.valor_estimado ? 'R$ ' + obra.valor_estimado.toLocaleString('pt-BR') : 'N/I'}\nÁrea: ${obra.raw_payload?.area_m2 ? obra.raw_payload.area_m2 + ' m²' : 'N/I'}`,
+          observacoes: `Lead gerado automaticamente da obra CNO ${obra.fonte_id || obra.id}.\nEndereço: ${obra.endereco_logradouro}${obra.endereco_numero ? ', ' + obra.endereco_numero : ''}, ${obra.endereco_cidade}/${obra.endereco_uf}${obra.endereco_cep ? ' - CEP ' + obra.endereco_cep : ''}\nValor estimado: ${obra.valor_estimado ? 'R$ ' + obra.valor_estimado.toLocaleString('pt-BR') : 'N/I'}\nÁrea: ${obra.raw_payload?.area_m2 ? obra.raw_payload.area_m2 + ' m²' : 'N/I'}${documento ? `\nDocumento do responsável: ${formatarDocumento(documento)}` : ''}`,
         })
         .select()
         .single()
@@ -206,7 +214,7 @@ export default function ObraDetalhePage() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex-1 min-w-0">
               <h1 className="font-heading text-2xl font-bold text-dark mb-2">
-                {obra.raw_payload?.responsavel || `Obra em ${obra.endereco_cidade}`}
+                {obra.responsavel_nome || obra.raw_payload?.responsavel || `Obra em ${obra.endereco_cidade}`}
               </h1>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MapPin className="h-4 w-4 flex-shrink-0" />
@@ -221,7 +229,7 @@ export default function ObraDetalhePage() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {obra.fase_atual ? (
                 <Badge className={FASE_COLORS[obra.fase_atual]}>
                   {FASE_LABELS[obra.fase_atual]}
@@ -232,6 +240,9 @@ export default function ObraDetalhePage() {
                 </Badge>
               )}
               <Badge variant="outline">{obra.porte}</Badge>
+              <div className="flex items-center gap-1">
+                <RadarScoreBadge score={obra.qualidade_score ?? 50} size="md" showLabel />
+              </div>
             </div>
           </div>
         </CardContent>
@@ -281,6 +292,45 @@ export default function ObraDetalhePage() {
         </Card>
       </div>
 
+      {/* Score de Oportunidade */}
+      <Card className="mb-6 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Score de Oportunidade
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex items-center gap-4">
+              <RadarScoreBadge score={obra.qualidade_score ?? 50} size="lg" showLabel />
+              <div className="text-xs text-muted-foreground">
+                Baseado em fase atual, proximidade,<br />
+                porte e valor estimado
+              </div>
+            </div>
+            <div className="text-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-muted-foreground">Fase atual</span>
+                <span className="font-medium">{obra.fase_atual ? FASE_LABELS[obra.fase_atual] : 'N/I'}</span>
+              </div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-muted-foreground">Porte</span>
+                <span className="font-medium capitalize">{obra.porte}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Valor estimado</span>
+                <span className="font-medium">
+                  {obra.valor_estimado
+                    ? `R$ ${obra.valor_estimado.toLocaleString('pt-BR')}`
+                    : 'N/I'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Mapa */}
         <Card>
@@ -311,6 +361,9 @@ export default function ObraDetalhePage() {
             <CardTitle>Detalhes Técnicos</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <Row label="Responsável" value={obra.responsavel_nome || obra.raw_payload?.responsavel} copy />
+            <Row label="Documento" value={formatarDocumento(obra.responsavel_documento || obra.raw_payload?.responsavel_documento)} copy />
+            <Row label="Qualificação" value={obra.responsavel_qualificacao || obra.raw_payload?.responsavel_qualificacao} />
             <Row label="CNO" value={obra.fonte_id} copy />
             <Row label="Situação" value={obra.raw_payload?.situacao === '01' ? 'Ativa' : obra.raw_payload?.situacao === '14' ? 'Ativa (c/ pendência)' : obra.raw_payload?.situacao || 'N/I'} />
             <Row label="Data situação" value={obra.raw_payload?.data_situacao} />
@@ -372,6 +425,20 @@ export default function ObraDetalhePage() {
       </Card>
     </div>
   )
+}
+
+function formatarDocumento(doc?: string | null): string | null {
+  if (!doc) return null
+  const d = doc.replace(/\D/g, '')
+  if (d.length === 11) {
+    // CPF: 000.000.000-00
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9, 11)}`
+  }
+  if (d.length === 14) {
+    // CNPJ: 00.000.000/0000-00
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
+  }
+  return doc
 }
 
 function Row({ label, value, copy }: { label: string; value?: string | null; copy?: boolean }) {

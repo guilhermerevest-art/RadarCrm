@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { CheckCircle2, Loader2, Shield, Bell, Users, Database } from 'lucide-react'
+import { CheckCircle2, Loader2, Shield, Bell, Users, Database, Key, Webhook } from 'lucide-react'
 
 const CIDADES = [
   'Uberlândia', 'Uberaba', 'Araguari', 'Ituiutaba',
@@ -319,6 +319,53 @@ export default function ConfiguracaoPage() {
             <Button variant="destructive" size="sm">
               Cancelar conta
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API e Webhooks */}
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Key className="h-5 w-5 text-primary" />
+            Integracao e API
+          </CardTitle>
+          <CardDescription>
+            Gerencie chaves de API e webhooks para integracoes externas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <a
+              href="/dashboard/configuracao/api"
+              className="flex items-center gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+            >
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Key className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">API Keys</p>
+                <p className="text-xs text-muted-foreground">
+                  Chaves para acesso programatico
+                </p>
+              </div>
+            </a>
+            <a
+              href="/api/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+            >
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Webhook className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Documentacao API</p>
+                <p className="text-xs text-muted-foreground">
+                  Referencia completa da API REST
+                </p>
+              </div>
+            </a>
           </div>
         </CardContent>
       </Card>

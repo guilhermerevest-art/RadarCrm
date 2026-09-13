@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
+import { CookieBannerWrapper } from '@/components/cookies/CookieBannerWrapper'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className="min-h-screen">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           {children}
+          <CookieBannerWrapper />
           <Toaster />
         </ThemeProvider>
         <script

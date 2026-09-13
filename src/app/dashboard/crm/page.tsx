@@ -15,8 +15,18 @@ import {
   Mail,
   MessageSquare,
   LayoutGrid,
+  BarChart3,
+  Zap,
+  Calendar,
 } from 'lucide-react'
 import Link from 'next/link'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 type Lead = {
   id: string
@@ -115,18 +125,38 @@ export default function CrmPage() {
             {leads.length} leads · {leadsFiltrados.length} mostrados
           </p>
         </div>
-        <Link href="/dashboard/crm/quadro">
-          <Button variant="outline">
-            <LayoutGrid className="h-4 w-4 mr-1" />
-            Quadro
-          </Button>
-        </Link>
-        <Link href="/dashboard/crm/novo">
-          <Button>
-            <Plus className="h-4 w-4 mr-1" />
-            Novo Lead
-          </Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard/crm/quadro">
+            <Button variant="outline" size="sm">
+              <LayoutGrid className="h-4 w-4 mr-1" />
+              Pipeline
+            </Button>
+          </Link>
+          <Link href="/dashboard/crm/calendario">
+            <Button variant="outline" size="sm">
+              <Calendar className="h-4 w-4 mr-1" />
+              Calendário
+            </Button>
+          </Link>
+          <Link href="/dashboard/crm/analytics">
+            <Button variant="outline" size="sm">
+              <BarChart3 className="h-4 w-4 mr-1" />
+              Analytics
+            </Button>
+          </Link>
+          <Link href="/dashboard/crm/automacoes">
+            <Button variant="outline" size="sm">
+              <Zap className="h-4 w-4 mr-1" />
+              Automações
+            </Button>
+          </Link>
+          <Link href="/dashboard/crm/novo">
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              Novo Lead
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filtros */}
