@@ -63,7 +63,7 @@ export interface TenantConvites {
 // Radar de Obras
 // ---------------------------------------------------------------------------
 export type FonteObra = 'cno' | 'alvara_prefeitura' | 'pncp' | 'semad_mg'
-export type FaseObra = 'alvara' | 'fundacao' | 'estrutura' | 'acabamento' | 'concluida'
+export type FaseObra = 'alvara' | 'fundacao' | 'estrutura' | 'acabamento' | 'concluida' | 'nao_iniciou' | null
 export type PorteObra = 'pequeno' | 'medio' | 'grande'
 export type StatusObra = 'ativa' | 'pausada' | 'concluida' | 'cancelada'
 
@@ -191,4 +191,120 @@ export interface UsuarioPerfil {
   avatar_url?: string
   telefone?: string
   created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Sistema de Marcações (estilo Waze — confirmações de fase da obra)
+// ---------------------------------------------------------------------------
+
+// Fases macro da obra (alinhadas com CHECK constraint de radar_obras)
+export type FaseMacro = 'alvara' | 'fundacao' | 'estrutura' | 'acabamento' | 'concluida' | 'paralisada' | 'nao_iniciou'
+
+// Catálogo de fases granulares (sub-estágios) — usado nas sugestões do modal
+export const FASES_GRANULARES: Record<FaseMacro, { valor: string; label: string; emoji: string }[]> = {
+  alvara: [
+    { valor: 'documentacao', label: 'Documentação em análise', emoji: '📋' },
+    { valor: 'aprovado', label: 'Alvará aprovado', emoji: '✅' },
+  ],
+  fundacao: [
+    { valor: 'escavacao', label: 'Escavação', emoji: '⛏️' },
+    { valor: 'fundacao_rasa', label: 'Fundação rasa (sapata/radier)', emoji: '🏗️' },
+    { valor: 'fundacao_profunda', label: 'Fundação profunda (estaca)', emoji: '🔩' },
+    { valor: 'fundacao_pronta', label: 'Fundação pronta', emoji: '✓' },
+  ],
+  estrutura: [
+    { valor: 'laje', label: 'Laje em execução', emoji: '⬜' },
+    { valor: 'alvenaria', label: 'Alvenaria (levantamento de paredes)', emoji: '🧱' },
+    { valor: 'estrutura_pronta', label: 'Estrutura pronta', emoji: '✓' },
+  ],
+  acabamento: [
+    { valor: 'reboco', label: 'Reboco / massa', emoji: '🪣' },
+    { valor: 'contrapiso', label: 'Contrapiso', emoji: '🟫' },
+    { valor: 'revestimento', label: 'Revestimento (piso/azulejo)', emoji: '🔲' },
+    { valor: 'pintura', label: 'Pintura', emoji: '🎨' },
+    { valor: 'instalacoes', label: 'Instalações elétricas/hidráulicas', emoji: '🔌' },
+    { valor: 'acabamento_final', label: 'Acabamento final', emoji: '✨' },
+  ],
+  concluida: [
+    { valor: 'obra_entregue', label: 'Obra entregue', emoji: '🏁' },
+    { valor: 'em_uso', label: 'Em uso', emoji: '🏠' },
+  ],
+  paralisada: [
+    { valor: 'paralisada_total', label: 'Paralisada (sem movimentação)', emoji: '⏸️' },
+    { valor: 'paralisada_parcial', label: 'Paralisada parcialmente', emoji: '⏸️' },
+  ],
+  nao_iniciou: [
+    { valor: 'terreno', label: 'Terreno apenas', emoji: '🌱' },
+    { valor: 'projeto', label: 'Em projeto', emoji: '📐' },
+  ],
+}
+
+// Obra canônica global (compartilhada entre tenants)
+export interface ObraGlobal {
+  id: string
+  hash_deduplicacao: string
+  endereco_logradouro: string
+  endereco_numero?: string
+  endereco_bairro?: string
+  endereco_cidade: string
+  endereco_uf: string
+  endereco_cep?: string
+  lat?: number
+  lng?: number
+  fase_consolidada?: string
+  fase_macro_consolidada?: FaseMacro
+  total_marcacoes: number
+  total_confirmacoes: number
+  ultima_atividade_em?: string
+  created_at: string
+  updated_at: string
+}
+
+// Marcação individual (cada usuário cria uma)
+export interface ObraMarcacao {
+  id: string
+  obra_global_id: string
+  tenant_id: string
+  user_id: string
+  fase: string
+  fase_macro: FaseMacro
+  nota?: string
+  created_at: string
+  // joins
+  autor_nome?: string
+  autor_avatar?: string
+  total_confirmacoes?: number
+  ja_confirmei?: boolean
+}
+
+// Confirmação de uma marcação (estilo Waze)
+export interface ObraConfirmacao {
+  id: string
+  marcacao_id: string
+  user_id: string
+  created_at: string
+}
+
+// Pontuação por usuário (gamificação)
+export type Nivel = 'observador' | 'colaborador' | 'especialista' | 'validador' | 'lenda'
+
+export interface UserPontuacao {
+  user_id: string
+  pontos: number
+  marcacoes_criadas: number
+  confirmacoes_feitas: number
+  marcacoes_confirmadas: number
+  badges: string[]
+  nivel: Nivel
+  updated_at: string
+}
+
+// Catálogo de badges (lido do banco)
+export interface BadgeInfo {
+  id: string
+  nome: string
+  descricao: string
+  icone: string
+  criterio_pontos: number
+  criterio_confirmacoes: number
 }

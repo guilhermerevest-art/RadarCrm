@@ -16,6 +16,10 @@ import {
   MapPin,
   DollarSign,
   Plus,
+  Clock,
+  CheckCircle2,
+  Circle,
+  X as XIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -26,6 +30,7 @@ import { useToast } from '@/hooks/use-toast'
 
 type Lead = {
   id: string
+  tenant_id?: string
   nome: string
   empresa?: string
   email?: string
@@ -58,6 +63,18 @@ export default function LeadDetalhePage() {
   const [salvando, setSalvando] = useState(false)
   const [novaNota, setNovaNota] = useState('')
   const [notas, setNotas] = useState<Array<{ id: string; texto: string; created_at: string }>>([])
+  const [atividades, setAtividades] = useState<Array<{
+    id: string
+    tipo: string
+    descricao: string
+    data_vencimento?: string
+    status: string
+  }>>([])
+  const [novaAtividade, setNovaAtividade] = useState({
+    tipo: 'tarefa' as 'tarefa' | 'ligacao' | 'reuniao' | 'email' | 'whatsapp',
+    descricao: '',
+    data_vencimento: '',
+  })
 
   useEffect(() => {
     async function carregar() {
@@ -80,6 +97,14 @@ export default function LeadDetalhePage() {
       const key = `lead_notes_${leadId}`
       const stored = localStorage.getItem(key)
       if (stored) setNotas(JSON.parse(stored))
+
+      // Carrega atividades
+      const { data: ats } = await supabase
+        .from('crm_atividades')
+        .select('*')
+        .eq('lead_id', leadId)
+        .order('data_vencimento', { ascending: true, nullsFirst: false })
+      setAtividades(ats ?? [])
     }
     carregar()
   }, [leadId, router, supabase, toast])
@@ -144,6 +169,50 @@ export default function LeadDetalhePage() {
     if (!lead?.telefone) return null
     const num = lead.telefone.replace(/\D/g, '')
     return `https://wa.me/55${num}?text=${encodeURIComponent(`Olá ${lead.nome}, tudo bem?`)}`
+  }
+
+  async function adicionarAtividade() {
+    if (!lead || !novaAtividade.descricao.trim()) return
+    try {
+      const { data, error } = await supabase
+        .from('crm_atividades')
+        .insert({
+          tenant_id: lead.tenant_id,
+          lead_id: lead.id,
+          tipo: novaAtividade.tipo,
+          descricao: novaAtividade.descricao,
+          data_vencimento: novaAtividade.data_vencimento || null,
+          status: 'pendente',
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      setAtividades(prev => [...prev, data])
+      setNovaAtividade({ tipo: 'tarefa', descricao: '', data_vencimento: '' })
+      toast({ title: '✅ Atividade criada' })
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+    }
+  }
+
+  async function toggleAtividade(id: string, novoStatus: string) {
+    try {
+      const { error } = await supabase
+        .from('crm_atividades')
+        .update({
+          status: novoStatus,
+          data_conclusao: novoStatus === 'concluida' ? new Date().toISOString() : null,
+        })
+        .eq('id', id)
+
+      if (error) throw error
+      setAtividades(prev =>
+        prev.map(a => a.id === id ? { ...a, status: novoStatus } : a)
+      )
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+    }
   }
 
   if (loading) {
@@ -337,6 +406,98 @@ export default function LeadDetalhePage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Atividades / Tarefas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                Atividades & Tarefas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Form adicionar */}
+              <div className="space-y-2 mb-4 p-3 rounded-lg bg-muted/30">
+                <div className="flex gap-2">
+                  <select
+                    className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                    value={novaAtividade.tipo}
+                    onChange={(e) => setNovaAtividade({ ...novaAtividade, tipo: e.target.value as any })}
+                  >
+                    <option value="tarefa">📋 Tarefa</option>
+                    <option value="ligacao">📞 Ligação</option>
+                    <option value="reuniao">🤝 Reunião</option>
+                    <option value="email">📧 Email</option>
+                    <option value="whatsapp">💬 WhatsApp</option>
+                  </select>
+                  <Input
+                    placeholder="Descrição..."
+                    value={novaAtividade.descricao}
+                    onChange={(e) => setNovaAtividade({ ...novaAtividade, descricao: e.target.value })}
+                    className="flex-1"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    type="datetime-local"
+                    value={novaAtividade.data_vencimento}
+                    onChange={(e) => setNovaAtividade({ ...novaAtividade, data_vencimento: e.target.value })}
+                    className="flex-1"
+                  />
+                  <Button onClick={adicionarAtividade} disabled={!novaAtividade.descricao.trim()}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Adicionar
+                  </Button>
+                </div>
+              </div>
+
+              {/* Lista */}
+              <div className="space-y-2">
+                {atividades.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nenhuma atividade. Crie lembretes para nunca esquecer do lead!
+                  </p>
+                ) : (
+                  atividades.map(a => {
+                    const vencida = a.data_vencimento && new Date(a.data_vencimento) < new Date() && a.status === 'pendente'
+                    return (
+                      <div
+                        key={a.id}
+                        className={`flex items-start gap-3 p-2 rounded-lg border ${
+                          a.status === 'concluida' ? 'bg-muted/30 opacity-60' :
+                          vencida ? 'bg-red-50 border-red-200' : 'bg-paper'
+                        }`}
+                      >
+                        <button
+                          onClick={() => toggleAtividade(a.id, a.status === 'concluida' ? 'pendente' : 'concluida')}
+                          className="mt-1 flex-shrink-0"
+                        >
+                          {a.status === 'concluida' ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                          )}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${a.status === 'concluida' ? 'line-through' : ''}`}>
+                            <span className="mr-2">{tipoEmoji(a.tipo)}</span>
+                            {a.descricao}
+                          </p>
+                          {a.data_vencimento && (
+                            <p className={`text-xs mt-1 ${vencida ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                              <Clock className="inline h-3 w-3 mr-1" />
+                              {vencida ? '⚠️ Vencida · ' : ''}
+                              {new Date(a.data_vencimento).toLocaleString('pt-BR')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
@@ -374,4 +535,15 @@ export default function LeadDetalhePage() {
       </div>
     </div>
   )
+}
+
+function tipoEmoji(tipo: string) {
+  const map: Record<string, string> = {
+    tarefa: '📋',
+    ligacao: '📞',
+    reuniao: '🤝',
+    email: '📧',
+    whatsapp: '💬',
+  }
+  return map[tipo] ?? '📌'
 }

@@ -13,6 +13,7 @@ import {
   Building,
   ChevronRight,
   Download,
+  ThumbsUp,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -24,12 +25,13 @@ type Obra = {
   endereco_bairro?: string
   endereco_cidade: string
   endereco_uf: string
-  fase_atual: string
+  fase_atual: string | null
   porte: string
   valor_estimado?: number
   status: string
   qualidade_score?: number
   created_at: string
+  obra_global_id?: string
 }
 
 const FASE_COLORS: Record<string, { bg: string; text: string }> = {
@@ -38,6 +40,12 @@ const FASE_COLORS: Record<string, { bg: string; text: string }> = {
   estrutura: { bg: 'bg-yellow-50', text: 'text-yellow-700' },
   acabamento: { bg: 'bg-green-50', text: 'text-green-700' },
   concluida: { bg: 'bg-gray-50', text: 'text-gray-500' },
+  nao_iniciou: { bg: 'bg-slate-50', text: 'text-slate-600' },
+}
+
+const FASE_NAO_IDENTIFICADA = {
+  bg: 'bg-slate-100',
+  text: 'text-slate-500',
 }
 
 export default function RadarPage() {
@@ -71,7 +79,27 @@ export default function RadarPage() {
         .order('created_at', { ascending: false })
         .limit(200)
 
-      setObras(data ?? [])
+      let obrasCarregadas = (data ?? []) as Obra[]
+
+      // Buscar contagem de marcações para obras que têm obra_global_id
+      const obrasComGlobal = obrasCarregadas.filter((o) => o.obra_global_id)
+      if (obrasComGlobal.length > 0) {
+        const ids = obrasComGlobal.map((o) => o.obra_global_id!)
+        const { data: globais } = await supabase
+          .from('radar_obras_globais')
+          .select('id, total_marcacoes, total_confirmacoes')
+          .in('id', ids)
+        if (globais) {
+          const map = new Map((globais as any[]).map((g) => [g.id, g]))
+          obrasCarregadas = obrasCarregadas.map((o) => ({
+            ...o,
+            total_marcacoes_globais: o.obra_global_id ? map.get(o.obra_global_id)?.total_marcacoes ?? 0 : 0,
+            total_confirmacoes_globais: o.obra_global_id ? map.get(o.obra_global_id)?.total_confirmacoes ?? 0 : 0,
+          })) as any
+        }
+      }
+
+      setObras(obrasCarregadas)
 
       // Extrai cidades únicas
       const cities = Array.from(new Set((data ?? []).map((o: any) => o.endereco_cidade)))
@@ -319,13 +347,20 @@ export default function RadarPage() {
                             <> · R$ {obra.valor_estimado.toLocaleString('pt-BR')}</>
                           )}
                         </p>
+                        {(obra as any).total_marcacoes_globais > 0 && (
+                          <p className="text-xs mt-1.5 inline-flex items-center gap-1 text-primary">
+                            <ThumbsUp className="h-3 w-3" />
+                            <strong>{(obra as any).total_confirmacoes_globais}</strong>
+                            <span className="text-muted-foreground">confirmações · {(obra as any).total_marcacoes_globais} marcações</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                        FASE_COLORS[obra.fase_atual]?.bg ?? 'bg-gray-50'
-                      } ${FASE_COLORS[obra.fase_atual]?.text ?? 'text-gray-500'}`}>
-                        {obra.fase_atual}
+                        obra.fase_atual ? FASE_COLORS[obra.fase_atual]?.bg : FASE_NAO_IDENTIFICADA.bg
+                      } ${obra.fase_atual ? FASE_COLORS[obra.fase_atual]?.text : FASE_NAO_IDENTIFICADA.text}`}>
+                        {obra.fase_atual ? obra.fase_atual : 'Não identificada'}
                       </span>
                       <span className="text-xs font-semibold" style={{
                         color: (obra.qualidade_score ?? 50) > 80 ? '#D9541F' : (obra.qualidade_score ?? 50) > 60 ? '#D97706' : '#2E6F8E'

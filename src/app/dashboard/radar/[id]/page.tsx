@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
+import { CardConfirmacoes } from '@/components/marcacao/CardConfirmacoes'
 
 type Obra = {
   id: string
@@ -34,7 +35,7 @@ type Obra = {
   endereco_cep?: string
   lat?: number
   lng?: number
-  fase_atual: string
+  fase_atual: string | null
   porte: string
   valor_estimado?: number
   status: string
@@ -43,6 +44,9 @@ type Obra = {
   data_previsao_termino?: string
   descricao?: string
   raw_payload?: any
+  tenant_id?: string
+  obra_global_id?: string
+  hash_deduplicacao?: string
 }
 
 const FASE_LABELS: Record<string, string> = {
@@ -51,6 +55,7 @@ const FASE_LABELS: Record<string, string> = {
   estrutura: 'Estrutura',
   acabamento: 'Acabamento',
   concluida: 'Concluída',
+  nao_iniciou: 'Não iniciou',
 }
 
 const FASE_COLORS: Record<string, string> = {
@@ -59,6 +64,12 @@ const FASE_COLORS: Record<string, string> = {
   estrutura: 'bg-yellow-100 text-yellow-700',
   acabamento: 'bg-green-100 text-green-700',
   concluida: 'bg-gray-100 text-gray-500',
+  nao_iniciou: 'bg-slate-100 text-slate-600',
+}
+
+const FASE_NAO_IDENTIFICADA = {
+  label: 'Não identificada',
+  color: 'bg-slate-100 text-slate-500 border-dashed',
 }
 
 export default function ObraDetalhePage() {
@@ -72,9 +83,21 @@ export default function ObraDetalhePage() {
   const [loading, setLoading] = useState(true)
   const [gerandoLead, setGerandoLead] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [tenantId, setTenantId] = useState<string | null>(null)
 
   useEffect(() => {
     async function carregar() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) setUserId(user.id)
+
+      const { data: tu } = await supabase
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', user?.id || '')
+        .maybeSingle()
+      if (tu) setTenantId(tu.tenant_id)
+
       const { data, error } = await supabase
         .from('radar_obras')
         .select('*')
@@ -199,9 +222,15 @@ export default function ObraDetalhePage() {
             </div>
 
             <div className="flex gap-2">
-              <Badge className={FASE_COLORS[obra.fase_atual]}>
-                {FASE_LABELS[obra.fase_atual]}
-              </Badge>
+              {obra.fase_atual ? (
+                <Badge className={FASE_COLORS[obra.fase_atual]}>
+                  {FASE_LABELS[obra.fase_atual]}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className={FASE_NAO_IDENTIFICADA.color}>
+                  {FASE_NAO_IDENTIFICADA.label}
+                </Badge>
+              )}
               <Badge variant="outline">{obra.porte}</Badge>
             </div>
           </div>
@@ -291,6 +320,29 @@ export default function ObraDetalhePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sistema de Marcações da Comunidade (estilo Waze) */}
+      {userId && tenantId && (
+        <div className="mb-6">
+          <CardConfirmacoes
+            obraId={obra.id}
+            obraGlobalId={obra.obra_global_id}
+            obraData={{
+              hash_deduplicacao: obra.hash_deduplicacao,
+              endereco_logradouro: obra.endereco_logradouro,
+              endereco_numero: obra.endereco_numero,
+              endereco_bairro: obra.endereco_bairro,
+              endereco_cidade: obra.endereco_cidade,
+              endereco_uf: obra.endereco_uf,
+              endereco_cep: obra.endereco_cep,
+              lat: obra.lat,
+              lng: obra.lng,
+            }}
+            tenantId={tenantId}
+            userId={userId}
+          />
+        </div>
+      )}
 
       {/* Ações */}
       <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
