@@ -253,7 +253,8 @@ export default function RadarPage() {
             </Card>
           ) : (
             obrasFiltradas.slice(0, 10).map((obra) => (
-              <Card key={obra.id} className="border-border/50 hover:shadow-sm">
+              <Link href={`/dashboard/radar/${obra.id}`} key={obra.id} className="block">
+              <Card className="border-border/50 hover:shadow-md hover:border-primary/40 cursor-pointer transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
@@ -291,10 +292,12 @@ export default function RadarPage() {
                       }}>
                         {obra.qualidade_score ?? 50}
                       </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
+              </Link>
             ))
           )}
           {obrasFiltradas.length > 10 && (
