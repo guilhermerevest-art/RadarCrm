@@ -86,13 +86,6 @@ export default function SignupPage() {
     }
 
     const data = json
-    const error = null
-
-    if (error) {
-      toast({ title: 'Erro ao criar conta', description: error.message, variant: 'destructive' })
-      setLoading(false)
-      return
-    }
 
     // Verifica se precisa confirmar email
     if (data.user && !data.session) {
