@@ -15,7 +15,10 @@
     "etl:semad": "tsx scripts/etl/semad-mg.ts",
     "etl:all": "tsx scripts/etl/index.ts all",
     "etl:status": "tsx scripts/etl/status.ts",
-    "etl:geocode": "tsx scripts/etl/geocode-batch.ts"
+    "etl:geocode": "tsx scripts/etl/geocode-batch.ts",
+    "etl:tjmg": "tsx scripts/etl/tjmg.ts",
+    "etl:receita": "tsx scripts/etl/receita-federal.ts",
+    "etl:regularidade": "tsx scripts/etl/regularidade-fiscal.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

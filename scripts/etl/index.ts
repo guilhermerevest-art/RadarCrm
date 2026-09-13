@@ -15,11 +15,17 @@ export { runETL as runPNCPETL } from './pncp';
 export { runETL as runAlvaraUberlandiaETL } from './alvaras/uberlandia';
 export { runETL as runAlvaraUberabaETL } from './alvaras/uberaba';
 export { runETL as runSEMADETL } from './semad-mg';
+export { runETL as runTJMGETL } from './tjmg';
+export { runETL as runReceitaFederalETL } from './receita-federal';
+export { runETL as runRegularidadeFiscalETL } from './regularidade-fiscal';
 
 import { runETL as runPNCPETL } from './pncp';
 import { runETL as runAlvaraUberlandiaETL } from './alvaras/uberlandia';
 import { runETL as runAlvaraUberabaETL } from './alvaras/uberaba';
 import { runETL as runSEMADETL } from './semad-mg';
+import { runETL as runTJMGETL } from './tjmg';
+import { runETL as runReceitaFederalETL } from './receita-federal';
+import { runETL as runRegularidadeFiscalETL } from './regularidade-fiscal';
 
 export interface ETLObra {
   fonte: string;

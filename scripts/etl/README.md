@@ -22,6 +22,28 @@ Scripts para ingestao de dados de obras a partir de fontes publicas.
 - **Campos**: numero licenca, tipo, atividade, empresa, municipio
 - **Cron**: diario as 8h
 
+## Fontes de Enriquecimento de Leads
+
+### 4. TJMG (Tribunal de Justiça MG)
+- **Script**: `scripts/etl/tjmg.ts`
+- **Dados**: Processos judiciais, execuções, falências
+- **Uso**: Score de risco do lead
+- **Comando**: `npm run etl:tjmg`
+
+### 5. Receita Federal (CNPJ)
+- **API**: https://receitaws.com.br/v1/cnpj
+- **Script**: `scripts/etl/receita-federal.ts`
+- **Dados**: Razão social, situação, CNAE, endereço
+- **Uso**: Enriquecer empresas no CRM
+- **Rate limit**: 3 req/min
+- **Comando**: `npm run etl:receita`
+
+### 6. INSS/PGFN (Regularidade Fiscal)
+- **Script**: `scripts/etl/regularidade-fiscal.ts`
+- **Dados**: Certidões negativas, dívidas
+- **Uso**: Qualification B2B
+- **Comando**: `npm run etl:regularidade`
+
 ## Estrutura dos Scripts
 
 Cada script ETL segue a estrutura:
