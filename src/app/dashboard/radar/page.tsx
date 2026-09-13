@@ -60,52 +60,79 @@ export default function RadarPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: tu } = await supabase
-        .from('tenant_users')
-        .select('tenant_id')
-        .eq('user_id', user.id)
-        .single()
-
-      if (!tu) return
-      setTenantId(tu.tenant_id)
-
-      const { data } = await supabase
-        .from('radar_obras')
-        .select('*')
-        .eq('tenant_id', tu.tenant_id)
-        .order('created_at', { ascending: false })
-        .limit(200)
-
-      let obrasCarregadas = (data ?? []) as Obra[]
-
-      // Buscar contagem de marcações para obras que têm obra_global_id
-      const obrasComGlobal = obrasCarregadas.filter((o) => o.obra_global_id)
-      if (obrasComGlobal.length > 0) {
-        const ids = obrasComGlobal.map((o) => o.obra_global_id!)
-        const { data: globais } = await supabase
-          .from('radar_obras_globais')
-          .select('id, total_marcacoes, total_confirmacoes')
-          .in('id', ids)
-        if (globais) {
-          const map = new Map((globais as any[]).map((g) => [g.id, g]))
-          obrasCarregadas = obrasCarregadas.map((o) => ({
-            ...o,
-            total_marcacoes_globais: o.obra_global_id ? map.get(o.obra_global_id)?.total_marcacoes ?? 0 : 0,
-            total_confirmacoes_globais: o.obra_global_id ? map.get(o.obra_global_id)?.total_confirmacoes ?? 0 : 0,
-          })) as any
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          console.log('[radar] sem usuario')
+          setLoading(false)
+          return
         }
+
+        const { data: tu, error: errTu } = await supabase
+          .from('tenant_users')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .single()
+
+        if (errTu || !tu) {
+          console.error('[radar] tenant_users error:', errTu?.message)
+          setLoading(false)
+          return
+        }
+        setTenantId(tu.tenant_id)
+        console.log('[radar] tenant_id:', tu.tenant_id)
+
+        // Timeout de seguranca: 10s
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => {
+          console.error('[radar] timeout 10s')
+          controller.abort()
+        }, 10000)
+
+        const { data, error } = await supabase
+          .from('radar_obras')
+          .select('*')
+          .eq('tenant_id', tu.tenant_id)
+          .order('created_at', { ascending: false })
+          .limit(200)
+
+        clearTimeout(timeoutId)
+
+        if (error) {
+          console.error('[radar] obras error:', error.message)
+          setLoading(false)
+          return
+        }
+
+        console.log('[radar] carregou', data?.length, 'obras')
+        let obrasCarregadas = (data ?? []) as Obra[]
+
+        const obrasComGlobal = obrasCarregadas.filter((o) => o.obra_global_id)
+        if (obrasComGlobal.length > 0) {
+          const ids = obrasComGlobal.map((o) => o.obra_global_id!)
+          const { data: globais } = await supabase
+            .from('radar_obras_globais')
+            .select('id, total_marcacoes, total_confirmacoes')
+            .in('id', ids)
+          if (globais) {
+            const map = new Map((globais as any[]).map((g) => [g.id, g]))
+            obrasCarregadas = obrasCarregadas.map((o) => ({
+              ...o,
+              total_marcacoes_globais: o.obra_global_id ? map.get(o.obra_global_id)?.total_marcacoes ?? 0 : 0,
+              total_confirmacoes_globais: o.obra_global_id ? map.get(o.obra_global_id)?.total_confirmacoes ?? 0 : 0,
+            })) as any
+          }
+        }
+
+        setObras(obrasCarregadas)
+
+        const cities = Array.from(new Set((data ?? []).map((o: any) => o.endereco_cidade)))
+        setCidades(cities.sort() as string[])
+        setLoading(false)
+      } catch (err: any) {
+        console.error('[radar] erro fatal:', err?.message || err)
+        setLoading(false)
       }
-
-      setObras(obrasCarregadas)
-
-      // Extrai cidades únicas
-      const cities = Array.from(new Set((data ?? []).map((o: any) => o.endereco_cidade)))
-      setCidades(cities.sort() as string[])
-
-      setLoading(false)
     }
     load()
   }, [])
