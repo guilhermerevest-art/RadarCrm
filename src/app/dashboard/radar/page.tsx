@@ -29,6 +29,7 @@ import {
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { RadarRotaMiniWidget } from '@/components/radar/RadarRotaDia'
+import { FiltrosSalvos } from '@/components/radar/FiltrosSalvos'
 
 const RadarMap = dynamic(
   () => import('@/components/radar/RadarMap').then((m) => m.RadarMap),
@@ -618,6 +619,31 @@ export default function RadarPage() {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Listas de prospecção salvas */}
+      <div className="p-4 bg-card rounded-xl border border-border">
+        <div className="flex items-center gap-2 mb-3">
+          <Star className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold">Listas de prospecção</h3>
+          <span className="text-xs text-muted-foreground">
+            Salve combinações de filtros para reutilizar
+          </span>
+        </div>
+        <FiltrosSalvos
+          filtrosAtuais={{
+            fase: filtroFase,
+            cidade: filtroCidade,
+            score: filtroScore,
+            raioKm: raioKm,
+          }}
+          onCarregar={(f) => {
+            setFiltroFase(f.fase)
+            setFiltroCidade(f.cidade)
+            setFiltroScore(f.score)
+            setRaioKm(f.raioKm)
+          }}
+        />
       </div>
 
       {/* Painel de filtros expandidos */}
