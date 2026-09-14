@@ -24,6 +24,8 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { CardConfirmacoes } from '@/components/marcacao/CardConfirmacoes'
 import { RadarScoreBadge, RadarScoreBreakdown } from '@/components/radar/RadarScoreBadge'
+import { CardEmpresa, CardSocios } from '@/components/empresa'
+import type { RadarObraEmpresa, RadarObraSocio } from '@/lib/supabase/types'
 
 type Obra = {
   id: string
@@ -90,6 +92,9 @@ export default function ObraDetalhePage() {
   const [copied, setCopied] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [tenantId, setTenantId] = useState<string | null>(null)
+  const [empresa, setEmpresa] = useState<RadarObraEmpresa | null>(null)
+  const [socios, setSocios] = useState<RadarObraSocio[]>([])
+  const [loadingEmpresa, setLoadingEmpresa] = useState(false)
 
   useEffect(() => {
     async function carregar() {
@@ -120,6 +125,40 @@ export default function ObraDetalhePage() {
     }
     carregar()
   }, [obraId, router, supabase, toast])
+
+  useEffect(() => {
+    async function carregarEmpresa() {
+      if (!obra?.responsavel_documento || !tenantId) return
+      const cnpj = obra.responsavel_documento.replace(/\D/g, '')
+      if (cnpj.length !== 14) return
+      setLoadingEmpresa(true)
+      try {
+        const { data: emp } = await supabase
+          .from('radar_obras_empresas')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('cnpj', cnpj)
+          .maybeSingle()
+        setEmpresa(emp)
+        if (emp) {
+          const { data: soc } = await supabase
+            .from('radar_obras_socios')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .eq('cnpj_empresa', cnpj)
+            .order('qualificacao', { ascending: true })
+          setSocios(soc || [])
+        } else {
+          setSocios([])
+        }
+      } catch (err) {
+        console.error('Erro ao carregar empresa:', err)
+      } finally {
+        setLoadingEmpresa(false)
+      }
+    }
+    carregarEmpresa()
+  }, [obra?.responsavel_documento, tenantId, supabase])
 
   async function gerarLead() {
     if (!obra) return
@@ -373,6 +412,14 @@ export default function ObraDetalhePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Empresa enriquecida + Sócios (QSA) — só aparecem para obras com CNPJ */}
+      {(obra.responsavel_documento?.replace(/\D/g, '').length === 14) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <CardEmpresa empresa={empresa} loading={loadingEmpresa} />
+          <CardSocios socios={socios} loading={loadingEmpresa} />
+        </div>
+      )}
 
       {/* Sistema de Marcações da Comunidade (estilo Waze) */}
       {userId && tenantId && (
