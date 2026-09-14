@@ -21,6 +21,10 @@ import {
   ChevronUp,
   ChevronDown,
   X,
+  User,
+  Building2,
+  FileText,
+  Briefcase,
 } from 'lucide-react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -60,6 +64,96 @@ type Obra = {
   total_marcacoes?: number
   responsavel_nome?: string
   responsavel_documento?: string
+  responsavel_qualificacao?: string
+}
+
+// Dados enriquecidos da empresa (CNPJ)
+type EmpresaEnriquecida = {
+  cnpj: string
+  cnpj_basico: string
+  razao_social?: string
+  nome_fantasia?: string
+  situacao_cadastral?: string
+  natureza_juridica?: string
+  cnae_principal?: string
+  porte?: string
+  capital_social?: number
+  data_abertura?: string
+  telefone?: string
+  email?: string
+}
+
+// Formata CNPJ ou CPF para exibição
+function formatarDocumento(doc: string | undefined): string {
+  if (!doc) return ''
+  const digits = doc.replace(/\D/g, '')
+  if (digits.length === 14) {
+    // CNPJ
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`
+  } else if (digits.length === 11) {
+    // CPF
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
+  }
+  return doc
+}
+
+// Verifica se é CNPJ ou CPF
+function isCNPJ(doc: string | undefined): boolean {
+  if (!doc) return false
+  return doc.replace(/\D/g, '').length === 14
+}
+
+// Badge do responsável/construtora
+function ResponsavelBadge({ obra, empresa }: { obra: Partial<Obra>; empresa?: EmpresaEnriquecida }) {
+  const nome = obra.responsavel_nome
+  const documento = obra.responsavel_documento
+  const ehCNPJ = isCNPJ(documento)
+
+  // Se tem empresa enriquecida, mostrar razão social
+  const nomeExibido = empresa?.razao_social || empresa?.nome_fantasia || nome
+
+  if (!nomeExibido && !documento) {
+    return (
+      <span className="text-xs text-gray-400 italic">Responsável não identificado</span>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1.5">
+        {ehCNPJ ? (
+          <Building2 className="h-3.5 w-3.5 text-blue-600" />
+        ) : (
+          <User className="h-3.5 w-3.5 text-gray-500" />
+        )}
+        <span className="text-sm font-semibold text-gray-800 truncate max-w-[180px]" title={nomeExibido}>
+          {nomeExibido}
+        </span>
+      </div>
+      {documento && (
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          {ehCNPJ ? (
+            <FileText className="h-3 w-3" />
+          ) : (
+            <User className="h-3 w-3" />
+          )}
+          <span>{formatarDocumento(documento)}</span>
+          {empresa?.situacao_cadastral && (
+            <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+              empresa.situacao_cadastral === 'Ativa' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            }`}>
+              {empresa.situacao_cadastral}
+            </span>
+          )}
+        </div>
+      )}
+      {empresa?.cnae_principal && (
+        <div className="text-xs text-gray-400 truncate max-w-[200px]" title={empresa.cnae_principal}>
+          CNAE: {empresa.cnae_principal}
+        </div>
+      )}
+    </div>
+  )
 }
 
 type GeoPos = { lat: number; lng: number }
@@ -125,6 +219,7 @@ function StatCard({ label, value, color, icon }: { label: string; value: number 
 
 export default function RadarPage() {
   const [obras, setObras] = useState<Obra[]>([])
+  const [empresas, setEmpresas] = useState<Map<string, EmpresaEnriquecida>>(new Map())
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
   const [filtroFase, setFiltroFase] = useState<string | null>(null)
@@ -227,6 +322,23 @@ export default function RadarPage() {
               ...o,
               total_marcacoes: o.obra_global_id ? map.get(o.obra_global_id)?.total_marcacoes ?? 0 : 0,
             })) as Obra[]
+          }
+        }
+
+        // Enriquecer com dados da empresa (quando responsavel e CNPJ)
+        const obrasComCNPJ = obrasData.filter((o) => o.responsavel_documento && isCNPJ(o.responsavel_documento))
+        if (obrasComCNPJ.length > 0) {
+          const cnpjsSet = new Set(obrasComCNPJ.map((o) => o.responsavel_documento!))
+          const cnpjs = Array.from(cnpjsSet)
+          const { data: empresasData } = await supabase
+            .from('radar_obras_empresas')
+            .select('cnpj, cnpj_basico, razao_social, nome_fantasia, situacao_cadastral')
+            .eq('tenant_id', tu.tenant_id)
+            .in('cnpj', cnpjs)
+
+          if (empresasData) {
+            const empresasMap = new Map(empresasData.map((e: any) => [e.cnpj, e as EmpresaEnriquecida]))
+            setEmpresas(empresasMap)
           }
         }
 
@@ -685,9 +797,10 @@ export default function RadarPage() {
                         </div>
 
                         {/* Info principal */}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 space-y-2">
+                          {/* Endereço e fase */}
                           <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="font-semibold text-gray-900 truncate">
                                 {obra.endereco_logradouro}
                                 {obra.endereco_numero && <span className="text-gray-500">, {obra.endereco_numero}</span>}
@@ -700,9 +813,17 @@ export default function RadarPage() {
                             <FaseBadge fase={obra.fase_atual} />
                           </div>
 
+                          {/* Responsável / Construtora - DESTAQUE PRINCIPAL */}
+                          <div className="flex items-start gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
+                            <ResponsavelBadge
+                              obra={obra}
+                              empresa={obra.responsavel_documento ? empresas.get(obra.responsavel_documento) : undefined}
+                            />
+                          </div>
+
                           {/* Tags de info rápida */}
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
-                            <Badge variant="outline" className="text-xs">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="text-xs capitalize">
                               {obra.porte}
                             </Badge>
                             {obra.valor_estimado && (
@@ -710,9 +831,9 @@ export default function RadarPage() {
                                 💰 R$ {obra.valor_estimado.toLocaleString('pt-BR')}
                               </Badge>
                             )}
-                            {obra.responsavel_nome && (
-                              <Badge variant="outline" className="text-xs">
-                                👤 {obra.responsavel_nome.split(' ')[0]}
+                            {obra.fonte && (
+                              <Badge variant="outline" className="text-xs text-gray-600">
+                                {obra.fonte.replace('_', ' ')}
                               </Badge>
                             )}
                             {obra.distancia_km && (
