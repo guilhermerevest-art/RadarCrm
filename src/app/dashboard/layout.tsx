@@ -190,26 +190,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1 scrollbar-thin">
           {NAV_ITEMS.map((item, idx) => {
-            const isActive = pathname === item.href ||
+            // Item pai fica ativo apenas se nao ha submenu ativo E o proprio path dele bate
+            const isParentActive = pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
 
             // Verificar se algum submenu está ativo
             const submenuActive = item.submenu?.some(sub =>
               pathname === sub.href || pathname.startsWith(sub.href + '/')
-            )
+            ) ?? false
+
+            // Item pai NAO fica ativo se algum submenu estiver ativo
+            const showParentActive = isParentActive && !submenuActive
 
             if (item.submenu) {
               return (
                 <div key={item.href}>
                   <div className={cn(
                     'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                    isActive || submenuActive
+                    showParentActive
                       ? 'bg-gradient-primary text-white shadow-md'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      : submenuActive
+                        ? 'text-foreground bg-accent/40'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                   )}>
                     <item.icon className={cn(
                       'h-5 w-5 flex-shrink-0 transition-colors',
-                      isActive || submenuActive ? 'text-white' : ''
+                      showParentActive ? 'text-white' : ''
                     )} />
                     {!sidebarCollapsed && <span>{item.label}</span>}
                   </div>
@@ -238,14 +244,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 href={item.href}
                 className={cn(
                   'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                  isActive
+                  showParentActive
                     ? 'bg-gradient-primary text-white shadow-md'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 )}
               >
                 <item.icon className={cn(
                   'h-5 w-5 flex-shrink-0 transition-colors',
-                  isActive ? 'text-white' : ''
+                  showParentActive ? 'text-white' : ''
                 )} />
                 {!sidebarCollapsed && <span>{item.label}</span>}
               </Link>
