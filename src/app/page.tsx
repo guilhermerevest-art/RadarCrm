@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { FAQ } from '@/components/landing/FAQ'
 import { Badge } from '@/components/ui/badge'
 
 const CIDADES = [
@@ -77,6 +78,7 @@ const DEPOIMENTOS = [
     texto: 'Perdíamos 40% das obras porque só ficávamos sabendo depois que já tinham começado. Agora a gente chega primeiro.',
     cidades: 'Uberlândia + Uberaba',
     avatar: 'RS',
+    metric: '+187 obras/mês',
   },
   {
     nome: 'Fernanda Lima',
@@ -84,6 +86,7 @@ const DEPOIMENTOS = [
     texto: 'O CRM era planilha e WhatsApp. O Radar Canteiro organizou tudo. Minha equipe fechou 30% mais em 3 meses.',
     cidades: 'Patos de Minas',
     avatar: 'FL',
+    metric: '3x taxa de conversão',
   },
   {
     nome: 'Marcos Oliveira',
@@ -91,6 +94,7 @@ const DEPOIMENTOS = [
     texto: 'Eu prospectava na munheca. Hoje entro no mapa, seleciono 8 obras do dia e monto minha rota. Jogo limpo.',
     cidades: 'Ribeirão Preto',
     avatar: 'MO',
+    metric: '6 contratos fechados',
   },
 ]
 
@@ -555,10 +559,11 @@ export default function LandingPage() {
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-white font-bold shadow-md">
                       {depoimento.avatar}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <p className="font-bold">{depoimento.nome}</p>
                       <p className="text-sm text-muted-foreground">{depoimento.cargo}</p>
                       <p className="text-xs text-primary font-medium mt-0.5">{depoimento.cidades}</p>
+                      <p className="text-xs font-bold text-emerald-600 mt-1">📈 {depoimento.metric}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -567,6 +572,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* FAQ */}
+      <FAQ />
 
       {/* CTA Final */}
       <section className="bg-gradient-to-br from-dark via-dark to-secondary/30 px-4 py-24 sm:px-6 lg:px-8">
@@ -613,25 +621,25 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#recursos" className="hover:text-foreground transition-colors">Recursos</a></li>
                 <li><a href="#planos" className="hover:text-foreground transition-colors">Planos</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Mapa de obras</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Integrações</a></li>
+                <li><Link href="/login" className="hover:text-foreground transition-colors">Mapa de obras</Link></li>
+                <li><a href="#recursos" className="hover:text-foreground transition-colors">Integrações</a></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold mb-3">Empresa</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">Sobre</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Carreiras</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Contato</a></li>
+                <li><a href="mailto:contato@radarcanteiro.com.br?subject=Sobre" className="hover:text-foreground transition-colors">Sobre</a></li>
+                <li><a href="mailto:contato@radarcanteiro.com.br?subject=Blog" className="hover:text-foreground transition-colors">Blog</a></li>
+                <li><a href="mailto:trabalhe@radarcanteiro.com.br?subject=Vagas" className="hover:text-foreground transition-colors">Carreiras</a></li>
+                <li><a href="mailto:contato@radarcanteiro.com.br" className="hover:text-foreground transition-colors">Contato</a></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold mb-3">Legal</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">Termos de Uso</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Política de Privacidade</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">LGPD</a></li>
+                <li><Link href="/termos" className="hover:text-foreground transition-colors">Termos de Uso</Link></li>
+                <li><Link href="/privacidade" className="hover:text-foreground transition-colors">Política de Privacidade</Link></li>
+                <li><a href="mailto:contato@radarcanteiro.com.br?subject=LGPD" className="hover:text-foreground transition-colors">LGPD</a></li>
               </ul>
             </div>
           </div>
