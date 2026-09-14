@@ -215,30 +215,26 @@ async function marcarNaoEncontrado(admin: any, tenantId: string, cnpj: string): 
   }, { onConflict: 'tenant_id,cnpj' })
 }
 
-async function fetchFila(admin: any, limit: number): Promise<Array<{ cnpj: string; tenant_id: string }>> {
-  const { data, error } = await admin
-    .from('enrich_cnpj_queue')
-    .select('cnpj, tenant_id')
-    .order('enqueued_at', { ascending: true })
-    .limit(limit)
+// claim atomico: pega e remove da fila em uma unica operacao via RPC
+// (claim_cnpj_queue faz SELECT FOR UPDATE SKIP LOCKED + DELETE RETURNING)
+async function claimFila(admin: any, batchSize: number): Promise<Array<{ cnpj: string; tenant_id: string }>> {
+  const { data, error } = await admin.rpc('claim_cnpj_queue', { batch_size: batchSize })
   if (error) throw error
   return data || []
 }
 
-async function removerDaFila(admin: any, tenantId: string, cnpj: string): Promise<void> {
-  await admin.from('enrich_cnpj_queue')
-    .delete()
-    .eq('tenant_id', tenantId)
-    .eq('cnpj', cnpj)
-}
-
-async function incrementarAttempts(admin: any, tenantId: string, cnpj: string, errMsg: string): Promise<void> {
-  // Incrementa attempts e grava last_error (sem RPC, usa UPDATE direto)
-  await admin.from('enrich_cnpj_queue')
-    .update({ last_error: errMsg })
-    .eq('tenant_id', tenantId)
-    .eq('cnpj', cnpj)
-  // Incremento separado via SQL seria melhor, mas UPDATE acima ja rastreia erro
+// increment_attempts via RPC: incrementa + apos 5 tentativas marca nao_encontrado e remove
+async function incrementarAttempts(admin: any, tenantId: string, cnpj: string, errMsg: string): Promise<number> {
+  const { data, error } = await admin.rpc('increment_attempts', {
+    p_tenant_id: tenantId,
+    p_cnpj: cnpj,
+    p_error: errMsg,
+  })
+  if (error) {
+    console.error(`[enrich-cnpj] Erro ao incrementar attempts ${cnpj}:`, error)
+    return 0
+  }
+  return typeof data === 'number' ? data : 0
 }
 
 serve(async (req) => {
@@ -264,7 +260,7 @@ serve(async (req) => {
 
     if (mode === 'queue') {
       // Modo queue: drena enrich_cnpj_queue (populada pelo trigger da migration 020)
-      const fila = await fetchFila(admin, QUEUE_BATCH)
+      const fila = await claimFila(admin, QUEUE_BATCH)
       console.log(`[enrich-cnpj] mode=queue, ${fila.length} CNPJs da fila`)
       for (const item of fila) {
         cnpjToTenant.set(item.cnpj, item.tenant_id)
@@ -350,11 +346,11 @@ serve(async (req) => {
         } else if (publicaResult.notFound) {
           await marcarNaoEncontrado(admin, tenantId, cnpj)
           naoEncontrados++
-          if (mode === 'queue') await removerDaFila(admin, tenantId, cnpj)
+          if (mode === 'queue') await incrementarAttempts(admin, tenantId, cnpj, 'publica transitorio')
           continue
         } else {
           falhas++
-          if (mode === 'queue') await incrementarAttempts(admin, tenantId, cnpj, 'publica transitorio')
+          if (mode === 'queue') await incrementarAttempts(admin, tenantId, cnpj, 'brasilapi+publica transitorio')
           continue
         }
       } else {
@@ -366,7 +362,6 @@ serve(async (req) => {
         } else if (publicaResult.notFound) {
           await marcarNaoEncontrado(admin, tenantId, cnpj)
           naoEncontrados++
-          if (mode === 'queue') await removerDaFila(admin, tenantId, cnpj)
           continue
         } else {
           falhas++
@@ -380,7 +375,6 @@ serve(async (req) => {
           await salvarEmpresa(admin, tenantId, cnpj, dados)
           if (socios) await salvarSocios(admin, tenantId, cnpj, socios)
           enriquecidos++
-          if (mode === 'queue') await removerDaFila(admin, tenantId, cnpj)
         } catch (e) {
           console.error(`[enrich-cnpj] Erro ao gravar ${cnpj}:`, e)
           falhas++
