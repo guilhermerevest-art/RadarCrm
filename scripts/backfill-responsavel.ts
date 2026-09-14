@@ -17,12 +17,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Indices (sem header, virgula como separador):
+// Indices (sem header, virgula como separador, awk $N -> JS f[N-1]):
+// 0=CNO 1=Pais 2=NomePais 3=DataInicio 4=DataResp 5=DataRegistro
+// 6=CNOVinculado 7=CEP 8=NI 9=Qualificacao 10=Nome 11=CodMun ...
 const COL_CNO = 0
-const COL_NI = 8
-const COL_QUALIFICACAO = 9
-const COL_NOME = 10
-
+const COL_CEP = 7
+const COL_NI = 9
+const COL_QUALIFICACAO = 10
+const COL_NOME = 11
 async function main() {
   console.log(`[1/3] Indexando ${CSV_PATH} (streaming)...`)
   const map = new Map<string, { ni: string; nome: string; qualif: string }>()

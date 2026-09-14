@@ -116,14 +116,19 @@ async function fetchPublica(cnpj: string): Promise<FetchResult<PublicaData>> {
   }
 }
 
-function mapearBrasilApi(d: BrasilApiData): Record<string, unknown> {
+function cnpjBasico(cnpj: string | undefined | null, fallback: string): string {
+  const d = (cnpj || '').replace(/\D/g, '').substring(0, 8)
+  return d.length === 8 ? d : fallback
+}
+
+function mapearBrasilApi(d: BrasilApiData, cnpjOriginal: string): Record<string, unknown> {
   const cnae = d.cnae_fiscal
     ? `${d.cnae_fiscal}${d.cnae_fiscal_descricao ? ' - ' + d.cnae_fiscal_descricao : ''}`
     : null
   const logradouro = [d.descricao_tipo_de_logradouro, d.logradouro, d.numero]
     .filter(Boolean).join(' ').trim()
   return {
-    cnpj_basico: d.cnpj.substring(0, 8),
+    cnpj_basico: cnpjBasico(d.cnpj, cnpjOriginal),
     razao_social: d.razao_social || null,
     nome_fantasia: d.nome_fantasia || null,
     situacao_cadastral: d.descricao_situacao_cadastral || null,
@@ -143,7 +148,7 @@ function mapearBrasilApi(d: BrasilApiData): Record<string, unknown> {
   }
 }
 
-function mapearPublica(d: PublicaData): Record<string, unknown> {
+function mapearPublica(d: PublicaData, cnpjOriginal: string): Record<string, unknown> {
   const e = d.estabelecimento
   const cnae = e.atividade_principal?.id
     ? `${e.atividade_principal.id}${e.atividade_principal.descricao ? ' - ' + e.atividade_principal.descricao : ''}`
@@ -151,7 +156,7 @@ function mapearPublica(d: PublicaData): Record<string, unknown> {
   const logradouro = [e.tipo_logradouro, e.logradouro, e.numero].filter(Boolean).join(' ').trim()
   const telefone = (e.ddd1 && e.telefone1) ? `${e.ddd1}${e.telefone1}` : null
   return {
-    cnpj_basico: d.cnpj.substring(0, 8),
+    cnpj_basico: cnpjBasico(d.cnpj, cnpjOriginal),
     razao_social: d.razao_social || null,
     nome_fantasia: e.nome_fantasia || null,
     situacao_cadastral: e.situacao_cadastral || null,
@@ -293,12 +298,12 @@ serve(async (req) => {
       let socios: any[] | null = null
 
       if (brasilResult.encontrado && brasilResult.data) {
-        dados = mapearBrasilApi(brasilResult.data)
+        dados = mapearBrasilApi(brasilResult.data, cnpj)
       } else if (brasilResult.notFound) {
         // BrasilAPI disse 404, tenta publica
         const publicaResult = await fetchPublica(cnpj)
         if (publicaResult.encontrado && publicaResult.data) {
-          dados = mapearPublica(publicaResult.data)
+          dados = mapearPublica(publicaResult.data, cnpj)
           socios = publicaResult.data.socios || []
         } else if (publicaResult.notFound) {
           await marcarNaoEncontrado(admin, tenantId, cnpj)
@@ -312,7 +317,7 @@ serve(async (req) => {
         // BrasilAPI erro transitorio, tenta publica
         const publicaResult = await fetchPublica(cnpj)
         if (publicaResult.encontrado && publicaResult.data) {
-          dados = mapearPublica(publicaResult.data)
+          dados = mapearPublica(publicaResult.data, cnpj)
           socios = publicaResult.data.socios || []
         } else if (publicaResult.notFound) {
           await marcarNaoEncontrado(admin, tenantId, cnpj)

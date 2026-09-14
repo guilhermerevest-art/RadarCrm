@@ -58,9 +58,14 @@ async function fetchPublica(cnpj: string): Promise<FetchResult> {
   }
 }
 
-function mapearBrasilApi(data: any) {
+function cnpjBasico(cnpj: string | undefined | null, fallback: string): string {
+  const d = (cnpj || '').replace(/\D/g, '').substring(0, 8)
+  return d.length === 8 ? d : fallback
+}
+
+function mapearBrasilApi(data: any, cnpjOriginal: string) {
   return {
-    cnpj_basico: data.cnpj?.substring(0, 8),
+    cnpj_basico: cnpjBasico(data.cnpj, cnpjOriginal),
     razao_social: data.razao_social || null,
     nome_fantasia: data.nome_fantasia || null,
     situacao_cadastral: data.descricao_situacao_cadastral || null,
@@ -79,10 +84,10 @@ function mapearBrasilApi(data: any) {
   }
 }
 
-function mapearPublica(data: any) {
+function mapearPublica(data: any, cnpjOriginal: string) {
   const est = data.estabelecimento || {}
   return {
-    cnpj_basico: data.cnpj?.substring(0, 8),
+    cnpj_basico: cnpjBasico(data.cnpj, cnpjOriginal),
     razao_social: data.razao_social || null,
     nome_fantasia: est.nome_fantasia || null,
     situacao_cadastral: est.situacao_cadastral || null,
@@ -107,11 +112,11 @@ async function processarCnpj(cnpj: string, tenantId: string): Promise<'enriched'
 
   const brasil = await fetchBrasilApi(cnpj)
   if (brasil.ok === 'found') {
-    dados = mapearBrasilApi(brasil.data)
+    dados = mapearBrasilApi(brasil.data, cnpj)
   } else if (brasil.ok === 'not_found') {
     const pub = await fetchPublica(cnpj)
     if (pub.ok === 'found') {
-      dados = mapearPublica(pub.data)
+      dados = mapearPublica(pub.data, cnpj)
       socios = pub.data.socios || []
     } else if (pub.ok === 'not_found') {
       // marca placeholder
@@ -130,7 +135,7 @@ async function processarCnpj(cnpj: string, tenantId: string): Promise<'enriched'
     // erro BrasilAPI, tenta publica
     const pub = await fetchPublica(cnpj)
     if (pub.ok === 'found') {
-      dados = mapearPublica(pub.data)
+      dados = mapearPublica(pub.data, cnpj)
       socios = pub.data.socios || []
     } else if (pub.ok === 'not_found') {
       const { error } = await supabase.from('radar_obras_empresas').upsert({
@@ -189,7 +194,7 @@ async function main() {
     .select('id, tenant_id, responsavel_documento')
     .eq('status', 'ativa')
     .not('responsavel_documento', 'is', null)
-    .limit(limit ? limit * 5 : 50000)
+    .limit(50000)
 
   const seen = new Set<string>()
   const alvos: Array<{ cnpj: string; tenant: string }> = []
