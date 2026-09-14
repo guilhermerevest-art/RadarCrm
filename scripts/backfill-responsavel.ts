@@ -77,18 +77,20 @@ async function main() {
   let updated = 0
   for (let i = 0; i < patches.length; i += CHUNK) {
     const slice = patches.slice(i, i + CHUNK)
-    // Cast explicito no primeiro registro define o tipo dos demais
-    const valuesSql = slice.map((p, idx) => {
-      if (idx === 0) return `${p}::uuid`
-      return p
-    }).join(',')
+    // Cast explicito na coluna id (nao no VALUES todo) - usar CTE typed
+    // Bug anterior: ${p}::uuid foi interpretado como cast do VALUES inteiro.
+    // Solucao: subquery com alias + cast explicito por coluna.
+    const valuesSql = slice.join(',')
     const sql = `
+      WITH v(obra_id, ni, nome, qualif) AS (
+        SELECT id::uuid, ni, nome, qualif FROM (VALUES ${valuesSql}) AS x(id, ni, nome, qualif)
+      )
       UPDATE radar_obras
       SET responsavel_documento = v.ni,
           responsavel_nome = v.nome,
           responsavel_qualificacao = v.qualif
-      FROM (VALUES ${valuesSql}) AS v(id, ni, nome, qualif)
-      WHERE radar_obras.id = v.id
+      FROM v
+      WHERE radar_obras.id = v.obra_id
         AND radar_obras.tenant_id = '${TENANT_ID}'
     `
     const { error } = await supabase.rpc('exec_sql', { sql })
