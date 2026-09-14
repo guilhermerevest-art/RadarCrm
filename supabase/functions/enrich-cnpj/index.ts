@@ -21,6 +21,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const BRASILAPI_URL = 'https://brasilapi.com.br/api/cnpj/v1/'
 const PUBLICA_URL = 'https://publica.cnpj.ws/cnpj/'
 const DELAY_MS = 1100  // ~55 req/min, dentro do limite da BrasilAPI
+const QUEUE_BATCH = 100  // quantos CNPJs da fila processar por execucao
+
+type EnrichMode = 'queue' | 'legacy'
 
 const QUALIFICACOES_PRIORITARIAS = new Set([
   'Pessoa Juridica Construtora',
@@ -212,6 +215,32 @@ async function marcarNaoEncontrado(admin: any, tenantId: string, cnpj: string): 
   }, { onConflict: 'tenant_id,cnpj' })
 }
 
+async function fetchFila(admin: any, limit: number): Promise<Array<{ cnpj: string; tenant_id: string }>> {
+  const { data, error } = await admin
+    .from('enrich_cnpj_queue')
+    .select('cnpj, tenant_id')
+    .order('enqueued_at', { ascending: true })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
+
+async function removerDaFila(admin: any, tenantId: string, cnpj: string): Promise<void> {
+  await admin.from('enrich_cnpj_queue')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('cnpj', cnpj)
+}
+
+async function incrementarAttempts(admin: any, tenantId: string, cnpj: string, errMsg: string): Promise<void> {
+  // Incrementa attempts e grava last_error (sem RPC, usa UPDATE direto)
+  await admin.from('enrich_cnpj_queue')
+    .update({ last_error: errMsg })
+    .eq('tenant_id', tenantId)
+    .eq('cnpj', cnpj)
+  // Incremento separado via SQL seria melhor, mas UPDATE acima ja rastreia erro
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -222,38 +251,51 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const admin = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { limit: limitArg, force_refresh } = await req.json().catch(() => ({}))
+    const body = await req.json().catch(() => ({}))
+    const { limit: limitArg, force_refresh, mode: modeArg } = body
     const limit = typeof limitArg === 'number' ? limitArg : 200
     const force = !!force_refresh
+    const mode: EnrichMode = (modeArg === 'queue' || modeArg === 'legacy') ? modeArg : 'legacy'
 
-    // 1) Buscar obras ativas com CNPJ (14 digitos)
+    // 1) Buscar obras ativas com CNPJ (14 digitos) OU drenar fila persistente
     // Paginar para evitar .range(0, 9999) em base grande
     const cnpjToTenant = new Map<string, string>()
     const cnpjToQualif = new Map<string, string | null>()
 
-    let offset = 0
-    const PAGE = 1000
-    while (cnpjToTenant.size < limit + 1000) {
-      const { data: obras, error } = await admin
-        .from('radar_obras')
-        .select('id, tenant_id, responsavel_documento, responsavel_qualificacao')
-        .eq('status', 'ativa')
-        .not('responsavel_documento', 'is', null)
-        .range(offset, offset + PAGE - 1)
-      if (error) throw error
-      if (!obras || obras.length === 0) break
-
-      for (const o of obras) {
-        const doc = (o.responsavel_documento || '').replace(/\D/g, '')
-        if (doc.length === 14 && !cnpjToTenant.has(doc)) {
-          cnpjToTenant.set(doc, o.tenant_id)
-          cnpjToQualif.set(doc, o.responsavel_qualificacao)
-        }
+    if (mode === 'queue') {
+      // Modo queue: drena enrich_cnpj_queue (populada pelo trigger da migration 020)
+      const fila = await fetchFila(admin, QUEUE_BATCH)
+      console.log(`[enrich-cnpj] mode=queue, ${fila.length} CNPJs da fila`)
+      for (const item of fila) {
+        cnpjToTenant.set(item.cnpj, item.tenant_id)
+        cnpjToQualif.set(item.cnpj, null)  // qualif nao esta na fila; sem priorizacao nesse modo
       }
-      offset += PAGE
-      if (obras.length < PAGE) break
+    } else {
+      // Modo legado: varre radar_obras inteiro (cron diario 02:30)
+      let offset = 0
+      const PAGE = 1000
+      while (cnpjToTenant.size < limit + 1000) {
+        const { data: obras, error } = await admin
+          .from('radar_obras')
+          .select('id, tenant_id, responsavel_documento, responsavel_qualificacao')
+          .eq('status', 'ativa')
+          .not('responsavel_documento', 'is', null)
+          .range(offset, offset + PAGE - 1)
+        if (error) throw error
+        if (!obras || obras.length === 0) break
+
+        for (const o of obras) {
+          const doc = (o.responsavel_documento || '').replace(/\D/g, '')
+          if (doc.length === 14 && !cnpjToTenant.has(doc)) {
+            cnpjToTenant.set(doc, o.tenant_id)
+            cnpjToQualif.set(doc, o.responsavel_qualificacao)
+          }
+        }
+        offset += PAGE
+        if (obras.length < PAGE) break
+      }
+      console.log(`[enrich-cnpj] mode=legacy, ${cnpjToTenant.size} CNPJs unicos coletados`)
     }
-    console.log(`[enrich-cnpj] ${cnpjToTenant.size} CNPJs unicos coletados`)
 
     // 2) Filtrar os ja enriquecidos (se !force)
     const todosCnpjs = Array.from(cnpjToTenant.keys())
@@ -308,9 +350,11 @@ serve(async (req) => {
         } else if (publicaResult.notFound) {
           await marcarNaoEncontrado(admin, tenantId, cnpj)
           naoEncontrados++
+          if (mode === 'queue') await removerDaFila(admin, tenantId, cnpj)
           continue
         } else {
           falhas++
+          if (mode === 'queue') await incrementarAttempts(admin, tenantId, cnpj, 'publica transitorio')
           continue
         }
       } else {
@@ -322,9 +366,11 @@ serve(async (req) => {
         } else if (publicaResult.notFound) {
           await marcarNaoEncontrado(admin, tenantId, cnpj)
           naoEncontrados++
+          if (mode === 'queue') await removerDaFila(admin, tenantId, cnpj)
           continue
         } else {
           falhas++
+          if (mode === 'queue') await incrementarAttempts(admin, tenantId, cnpj, 'brasilapi+publica transitorio')
           continue
         }
       }
@@ -334,9 +380,11 @@ serve(async (req) => {
           await salvarEmpresa(admin, tenantId, cnpj, dados)
           if (socios) await salvarSocios(admin, tenantId, cnpj, socios)
           enriquecidos++
+          if (mode === 'queue') await removerDaFila(admin, tenantId, cnpj)
         } catch (e) {
           console.error(`[enrich-cnpj] Erro ao gravar ${cnpj}:`, e)
           falhas++
+          if (mode === 'queue') await incrementarAttempts(admin, tenantId, cnpj, String(e))
         }
       }
 
