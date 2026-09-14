@@ -1,19 +1,26 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import {
   Search,
   MapPin,
   Building,
-  ChevronRight,
   Download,
-  ThumbsUp,
-  Crosshair,
   Route,
+  Crosshair,
+  TrendingUp,
+  Clock,
+  Filter,
+  ArrowUpDown,
+  Star,
+  ChevronUp,
+  ChevronDown,
+  X,
 } from 'lucide-react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -24,7 +31,7 @@ const RadarMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-64 w-full bg-[#EEF1F2] animate-pulse flex items-center justify-center">
+      <div className="h-full min-h-[200px] bg-[#EEF1F2] animate-pulse flex items-center justify-center rounded-lg">
         <span className="text-xs text-muted-foreground">Carregando mapa...</span>
       </div>
     ),
@@ -51,114 +58,149 @@ type Obra = {
   distancia_km?: number
   fase_consolidada?: string
   total_marcacoes?: number
+  responsavel_nome?: string
+  responsavel_documento?: string
 }
 
 type GeoPos = { lat: number; lng: number }
 
-const FASE_COLORS: Record<string, { bg: string; text: string }> = {
-  alvara: { bg: 'bg-red-50', text: 'text-red-700' },
-  fundacao: { bg: 'bg-amber-50', text: 'text-amber-700' },
-  estrutura: { bg: 'bg-yellow-50', text: 'text-yellow-700' },
-  acabamento: { bg: 'bg-green-50', text: 'text-green-700' },
-  concluida: { bg: 'bg-gray-50', text: 'text-gray-500' },
-  nao_iniciou: { bg: 'bg-slate-50', text: 'text-slate-600' },
+const UBERLANDIA_CENTER = { lat: -18.9186, lng: -48.2772 }
+const RAIO_OPCOES = [10, 25, 50, 100]
+
+// Ordenações disponíveis
+type SortKey = 'score' | 'endereco' | 'valor' | 'fase'
+type SortDir = 'asc' | 'desc'
+
+const FASE_CONFIG: Record<string, { bg: string; text: string; icon: string; label: string }> = {
+  alvara: { bg: 'bg-red-100', text: 'text-red-700', icon: '🚧', label: 'Alvará' },
+  fundacao: { bg: 'bg-amber-100', text: 'text-amber-700', icon: '🧱', label: 'Fundação' },
+  estrutura: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '🏗️', label: 'Estrutura' },
+  acabamento: { bg: 'bg-green-100', text: 'text-green-700', icon: '✨', label: 'Acabamento' },
+  concluida: { bg: 'bg-gray-100', text: 'text-gray-500', icon: '✅', label: 'Concluída' },
+  nao_iniciou: { bg: 'bg-slate-100', text: 'text-slate-600', icon: '📋', label: 'Não Iniciou' },
 }
 
-const FASE_NAO_IDENTIFICADA = { bg: 'bg-slate-100', text: 'text-slate-500' }
+const FASE_NAO_IDENTIFICADA = { bg: 'bg-slate-100', text: 'text-slate-500', icon: '❓', label: 'Não Identificada' }
 
-const RAIO_OPCOES = [10, 25, 50, 100]
-const UBERLANDIA_CENTER = { lat: -18.9186, lng: -48.2772 }
+// Score badge com cor
+function ScoreBadge({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
+  const color = score > 80 ? '#D9541F' : score > 60 ? '#D97706' : '#2E6F8E'
+  const bg = score > 80 ? 'bg-orange-100' : score > 60 ? 'bg-amber-100' : 'bg-blue-50'
+  const sizeClasses = size === 'sm' ? 'px-1.5 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1.5 text-lg' : 'px-2 py-1 text-sm'
+  return (
+    <span
+      className={`inline-flex items-center font-bold rounded-full ${sizeClasses}`}
+      style={{ color, backgroundColor: `${color}15` }}
+    >
+      {score}
+    </span>
+  )
+}
+
+// Fase badge compacto
+function FaseBadge({ fase, size = 'sm' }: { fase: string | null; size?: 'sm' | 'md' }) {
+  const config = fase ? FASE_CONFIG[fase] : FASE_NAO_IDENTIFICADA
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${config.bg} ${config.text}`}>
+      <span>{config.icon}</span>
+      <span className={size === 'md' ? 'text-sm' : ''}>{config.label}</span>
+    </span>
+  )
+}
+
+// Mini card de estatística
+function StatCard({ label, value, color, icon }: { label: string; value: number | string; color: string; icon: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-white to-gray-50 border border-gray-100">
+      <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+        <p className="text-xs text-gray-500">{label}</p>
+      </div>
+    </div>
+  )
+}
 
 export default function RadarPage() {
   const [obras, setObras] = useState<Obra[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
-  const [filtroFase, setFiltroFase] = useState('todos')
-  const [filtroCidade, setFiltroCidade] = useState('todos')
+  const [filtroFase, setFiltroFase] = useState<string | null>(null)
+  const [filtroCidade, setFiltroCidade] = useState<string | null>(null)
+  const [filtroScore, setFiltroScore] = useState<'todos' | 'alto' | 'medio'>('todos')
+  const [mostrarFiltros, setMostrarFiltros] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('score')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [cidades, setCidades] = useState<string[]>([])
-  const [tenantId, setTenantId] = useState<string | null>(null)
   const [geoPos, setGeoPos] = useState<GeoPos | null>(UBERLANDIA_CENTER)
   const [raioKm, setRaioKm] = useState(50)
   const [geoLoading, setGeoLoading] = useState(false)
-  const [geoError, setGeoError] = useState<string | null>(null)
+  const [showMap, setShowMap] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
-  const PAGE_SIZE = 20
+  const PAGE_SIZE = 25
   const supabase = createClient()
 
   // Pegar localização do navegador
   const buscarLocalizacao = useCallback(() => {
-    // Primeiro tenta geolocalização do navegador
     if (navigator.geolocation) {
       setGeoLoading(true)
-      setGeoError(null)
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setGeoPos({ lat: pos.coords.latitude, lng: pos.coords.longitude })
           setGeoLoading(false)
         },
         () => {
-          // Fallback: Uberlandia
           setGeoPos(UBERLANDIA_CENTER)
           setGeoLoading(false)
         },
         { timeout: 5000 }
       )
-    } else {
-      setGeoPos(UBERLANDIA_CENTER)
     }
   }, [])
 
   useEffect(() => { buscarLocalizacao() }, [buscarLocalizacao])
 
+  // Carregar obras
   useEffect(() => {
     async function load() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
-          console.log('[radar] sem usuario')
           setLoading(false)
           return
         }
 
-        const { data: tu, error: errTu } = await supabase
+        const { data: tu } = await supabase
           .from('tenant_users')
           .select('tenant_id')
           .eq('user_id', user.id)
           .single()
 
-        if (errTu || !tu) {
-          console.error('[radar] tenant_users error:', errTu?.message)
+        if (!tu) {
           setLoading(false)
           return
         }
-        setTenantId(tu.tenant_id)
-        console.log('[radar] tenant_id:', tu.tenant_id)
 
         let obrasData: Obra[] = []
 
-        // Se temos posicao geografica, usar funcao com raio
         if (geoPos) {
           const { data: obrasGeo, error: errGeo } = await supabase.rpc('fn_radar_obras_no_raio', {
             p_lat: geoPos.lat,
             p_lng: geoPos.lng,
             p_raio_km: raioKm,
-            p_fase: filtroFase !== 'todos' ? filtroFase : null,
-            p_cidade: filtroCidade !== 'todos' ? filtroCidade : null,
+            p_fase: filtroFase,
+            p_cidade: filtroCidade,
             p_limit: 200,
             p_tenant: tu.tenant_id,
           })
-          if (errGeo) {
-            console.error('[radar] fn_radar_obras_no_raio error:', errGeo.message)
-          } else {
+          if (!errGeo) {
             obrasData = (obrasGeo ?? []) as Obra[]
           }
         }
 
-        // Se não tem geo ou falha, carregar todas
         if (obrasData.length === 0) {
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 15000)
-
           const { data, error } = await supabase
             .from('radar_obras')
             .select('*')
@@ -166,16 +208,12 @@ export default function RadarPage() {
             .order('qualidade_score', { ascending: false })
             .limit(500)
 
-          clearTimeout(timeoutId)
-          if (error) {
-            console.error('[radar] obras error:', error.message)
-            setLoading(false)
-            return
+          if (!error) {
+            obrasData = (data ?? []) as Obra[]
           }
-          obrasData = (data ?? []) as Obra[]
         }
 
-        // Enriquecer com dados da global
+        // Enriquecer com dados globais
         const obrasComGlobal = obrasData.filter((o) => o.obra_global_id)
         if (obrasComGlobal.length > 0) {
           const ids = obrasComGlobal.map((o) => o.obra_global_id!)
@@ -196,8 +234,8 @@ export default function RadarPage() {
         const cities = Array.from(new Set(obrasData.map((o) => o.endereco_cidade)))
         setCidades(cities.sort() as string[])
         setLoading(false)
-      } catch (err: any) {
-        console.error('[radar] erro fatal:', err?.message || err)
+      } catch (err) {
+        console.error('[radar] erro:', err)
         setLoading(false)
       }
     }
@@ -205,60 +243,105 @@ export default function RadarPage() {
   }, [supabase, geoPos, raioKm, filtroFase, filtroCidade])
 
   // Reset page when filters change
-  useEffect(() => { setCurrentPage(1) }, [busca, filtroFase, filtroCidade, raioKm])
+  useEffect(() => { setCurrentPage(1) }, [busca, filtroFase, filtroCidade, filtroScore, sortKey, sortDir])
 
-  const obrasFiltradas = obras.filter((obra) => {
-    const matchBusca =
-      !busca ||
-      obra.endereco_logradouro.toLowerCase().includes(busca.toLowerCase()) ||
-      obra.endereco_bairro?.toLowerCase().includes(busca.toLowerCase())
-    const matchFase = filtroFase === 'todos' || obra.fase_atual === filtroFase
-    const matchCidade = filtroCidade === 'todos' || obra.endereco_cidade === filtroCidade
-    return matchBusca && matchFase && matchCidade
-  })
+  // Filtrar e ordenar obras
+  const obrasProcessadas = useMemo(() => {
+    let filtered = obras.filter((obra) => {
+      const matchBusca =
+        !busca ||
+        obra.endereco_logradouro.toLowerCase().includes(busca.toLowerCase()) ||
+        obra.endereco_bairro?.toLowerCase().includes(busca.toLowerCase()) ||
+        obra.responsavel_nome?.toLowerCase().includes(busca.toLowerCase())
+      const matchFase = !filtroFase || obra.fase_atual === filtroFase
+      const matchCidade = !filtroCidade || obra.endereco_cidade === filtroCidade
+      const score = obra.qualidade_score ?? 50
+      const matchScore =
+        filtroScore === 'todos' ||
+        (filtroScore === 'alto' && score > 80) ||
+        (filtroScore === 'medio' && score > 60 && score <= 80)
+      return matchBusca && matchFase && matchCidade && matchScore
+    })
 
-  const totalPages = Math.ceil(obrasFiltradas.length / PAGE_SIZE)
-  const paginatedObras = obrasFiltradas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+    // Ordenar
+    filtered.sort((a, b) => {
+      let aVal: any, bVal: any
+      switch (sortKey) {
+        case 'score':
+          aVal = a.qualidade_score ?? 50
+          bVal = b.qualidade_score ?? 50
+          break
+        case 'endereco':
+          aVal = a.endereco_logradouro
+          bVal = b.endereco_logradouro
+          break
+        case 'valor':
+          aVal = a.valor_estimado ?? 0
+          bVal = b.valor_estimado ?? 0
+          break
+        case 'fase':
+          aVal = a.fase_atual ?? ''
+          bVal = b.fase_atual ?? ''
+          break
+      }
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
-          <p className="mt-2 text-sm text-muted-foreground">Carregando radar...</p>
-        </div>
-      </div>
-    )
-  }
+    return filtered
+  }, [obras, busca, filtroFase, filtroCidade, filtroScore, sortKey, sortDir])
 
-  const obrasPorScore = {
-    alto: obrasFiltradas.filter((o) => (o.qualidade_score ?? 50) > 80).length,
-    medio: obrasFiltradas.filter((o) => {
+  const totalPages = Math.ceil(obrasProcessadas.length / PAGE_SIZE)
+  const paginatedObras = obrasProcessadas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  // Estatísticas rápidas
+  const stats = useMemo(() => {
+    const total = obrasProcessadas.length
+    const altoPotencial = obrasProcessadas.filter(o => (o.qualidade_score ?? 50) > 80).length
+    const medioPotencial = obrasProcessadas.filter(o => {
       const s = o.qualidade_score ?? 50
       return s > 60 && s <= 80
-    }).length,
-    baixo: obrasFiltradas.filter((o) => (o.qualidade_score ?? 50) <= 60).length,
+    }).length
+    const comValor = obrasProcessadas.filter(o => o.valor_estimado && o.valor_estimado > 0).length
+    const valorTotal = obrasProcessadas.reduce((acc, o) => acc + (o.valor_estimado ?? 0), 0)
+    const fases = Array.from(new Set(obrasProcessadas.map(o => o.fase_atual).filter(Boolean)))
+    return { total, altoPotencial, medioPotencial, comValor, valorTotal, fases }
+  }, [obrasProcessadas])
+
+  // Contagem de filtros ativos
+  const filtrosAtivos = [filtroFase, filtroCidade, filtroScore !== 'todos'].filter(Boolean).length
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+    }
+  }
+
+  function clearFilters() {
+    setBusca('')
+    setFiltroFase(null)
+    setFiltroCidade(null)
+    setFiltroScore('todos')
+    setMostrarFiltros(false)
   }
 
   function exportarCSV() {
-    const headers = [
-      'Logradouro', 'Número', 'Bairro', 'Cidade', 'UF', 'CEP',
-      'Fase', 'Porte', 'Valor Estimado', 'Score', 'Status', 'Fonte', 'Data Início'
-    ]
-    const rows = obrasFiltradas.map(o => [
+    const headers = ['Logradouro', 'Número', 'Bairro', 'Cidade', 'UF', 'Fase', 'Porte', 'Valor Estimado', 'Score', 'Status']
+    const rows = obrasProcessadas.map(o => [
       o.endereco_logradouro,
       o.endereco_numero || '',
       o.endereco_bairro || '',
       o.endereco_cidade,
       o.endereco_uf,
-      (o as any).endereco_cep ?? '',
       o.fase_atual,
       o.porte,
       o.valor_estimado ?? '',
       o.qualidade_score ?? 50,
       o.status,
-      o.fonte,
-      '', // data_inicio se quiser puxar depois
     ])
 
     const csv = [
@@ -275,256 +358,400 @@ export default function RadarPage() {
     URL.revokeObjectURL(url)
   }
 
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-3 border-primary border-t-transparent mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">Carregando radar...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-bold text-dark">Radar de Obras</h1>
-          <p className="text-sm text-muted-foreground">
-            {obras.length} obras · {obrasFiltradas.length} mostradas · Uberlândia/MG
+          <h1 className="font-heading text-2xl font-bold text-dark flex items-center gap-2">
+            <span className="text-2xl">📡</span>
+            Radar de Obras
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {stats.total} obras encontradas em Uberlândia/MG
+            {filtrosAtivos > 0 && <span className="ml-2 text-primary font-medium">({filtrosAtivos} filtro{filtrosAtivos > 1 ? 's' : ''} ativo{filtrosAtivos > 1 ? 's' : ''})</span>}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMap(!showMap)}
+            className={showMap ? 'bg-blue-50 border-blue-200' : ''}
+          >
+            <MapPin className="h-4 w-4 mr-1" />
+            {showMap ? 'Ocultar' : 'Mostrar'} Mapa
+          </Button>
           <Link href="/dashboard/radar/rota">
             <Button variant="outline" size="sm">
               <Route className="h-4 w-4 mr-1" />
               Rota do Dia
             </Button>
           </Link>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportarCSV}
-            disabled={obrasFiltradas.length === 0}
-          >
+          <Button variant="outline" size="sm" onClick={exportarCSV} disabled={stats.total === 0}>
             <Download className="h-4 w-4 mr-1" />
-            Exportar CSV ({obrasFiltradas.length})
+            Exportar ({stats.total})
           </Button>
         </div>
       </div>
 
-      {/* Score overview + Rota */}
-      <div className="grid gap-4 lg:grid-cols-4">
-        {[
-          { label: 'Alto potencial', count: obrasPorScore.alto, color: 'text-primary' },
-          { label: 'Médio potencial', count: obrasPorScore.medio, color: 'text-amber-600' },
-          { label: 'Em andamento', count: obrasPorScore.baixo, color: 'text-secondary' },
-        ].map(({ label, count, color }) => (
-          <Card key={label} className="border-border/50">
-            <CardContent className="p-4 text-center">
-              <p className={`font-heading text-3xl font-bold ${color}`}>{count}</p>
-              <p className="text-xs text-muted-foreground mt-1">{label}</p>
-            </CardContent>
-          </Card>
-        ))}
-        <RadarRotaMiniWidget className="col-span-1" />
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard
+          label="Total de Obras"
+          value={stats.total}
+          color="#2E6F8E"
+          icon={<Building className="h-5 w-5 text-[#2E6F8E]" />}
+        />
+        <StatCard
+          label="Alto Potencial"
+          value={stats.altoPotencial}
+          color="#D9541F"
+          icon={<Star className="h-5 w-5 text-[#D9541F]" />}
+        />
+        <StatCard
+          label="Médio Potencial"
+          value={stats.medioPotencial}
+          color="#D97706"
+          icon={<TrendingUp className="h-5 w-5 text-[#D97706]" />}
+        />
+        <StatCard
+          label="Com Valor"
+          value={stats.comValor}
+          color="#16A34A"
+          icon={<span className="text-lg">💰</span>}
+        />
       </div>
 
-      {/* Geo + Filtros */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      {/* Barra de busca e filtros principais */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
-            placeholder="Buscar por endereco, bairro..."
-            className="pl-9"
+            placeholder="Buscar por endereço, bairro, responsável..."
+            className="pl-10 pr-10 h-11"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-        </div>
-        {/* Geo badge */}
-        <div className="flex items-center gap-2">
-          {geoPos && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3 text-primary" />
-              <span>Uberlândia</span>
-            </div>
+          {busca && (
+            <button
+              onClick={() => setBusca('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
           )}
-          <select
-            className="h-10 rounded-md border border-input bg-background px-2 text-sm"
-            value={raioKm}
-            onChange={(e) => setRaioKm(Number(e.target.value))}
-            disabled={!geoPos}
-          >
-            {RAIO_OPCOES.map((r) => (
-              <option key={r} value={r}>{r} km</option>
-            ))}
-          </select>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={buscarLocalizacao}
-            disabled={geoLoading}
-            title="Atualizar localizacao"
-          >
-            <Crosshair className="h-4 w-4" />
-          </Button>
         </div>
-        <div className="flex gap-2">
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            value={filtroFase}
-            onChange={(e) => setFiltroFase(e.target.value)}
+
+        <div className="flex gap-2 flex-wrap">
+          {/* Botão de filtros */}
+          <Button
+            variant={mostrarFiltros ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            className="h-11"
           >
-            <option value="todos">Todas fases</option>
-            <option value="alvara">Alvara</option>
-            <option value="fundacao">Fundacao</option>
-            <option value="estrutura">Estrutura</option>
-            <option value="acabamento">Acabamento</option>
-            <option value="concluida">Concluida</option>
-          </select>
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            value={filtroCidade}
-            onChange={(e) => setFiltroCidade(e.target.value)}
-          >
-            <option value="todos">Todas cidades</option>
-            {cidades.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+            <Filter className="h-4 w-4 mr-1" />
+            Filtros
+            {filtrosAtivos > 0 && (
+              <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 text-xs justify-center">
+                {filtrosAtivos}
+              </Badge>
+            )}
+          </Button>
+
+          {/* Ordenação rápida */}
+          <div className="flex items-center border rounded-md h-11 bg-white">
+            <button
+              onClick={() => toggleSort('score')}
+              className={`flex items-center gap-1 px-3 h-full text-xs font-medium ${sortKey === 'score' ? 'bg-primary text-white' : 'hover:bg-gray-50'}`}
+            >
+              Score
+              {sortKey === 'score' && (sortDir === 'desc' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />)}
+            </button>
+            <div className="w-px h-4 bg-gray-200" />
+            <button
+              onClick={() => toggleSort('valor')}
+              className={`flex items-center gap-1 px-3 h-full text-xs font-medium ${sortKey === 'valor' ? 'bg-primary text-white' : 'hover:bg-gray-50'}`}
+            >
+              Valor
+              {sortKey === 'valor' && (sortDir === 'desc' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />)}
+            </button>
+            <div className="w-px h-4 bg-gray-200" />
+            <button
+              onClick={() => toggleSort('endereco')}
+              className={`flex items-center gap-1 px-3 h-full text-xs font-medium ${sortKey === 'endereco' ? 'bg-primary text-white' : 'hover:bg-gray-50'}`}
+            >
+              Endereço
+              {sortKey === 'endereco' && (sortDir === 'desc' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />)}
+            </button>
+          </div>
+
+          {/* Limpar filtros */}
+          {filtrosAtivos > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-11 text-gray-500">
+              <X className="h-4 w-4 mr-1" />
+              Limpar
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Mapa + Lista */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Mapa interativo */}
-        <Card className="border-border/50 overflow-hidden">
-          <CardContent className="p-0">
-            {geoPos ? (
-              <RadarMap
-                center={geoPos}
-                markers={obrasFiltradas.map((o) => ({
-                  id: o.id,
-                  lat: o.lat ?? 0,
-                  lng: o.lng ?? 0,
-                  fase: o.fase_atual ?? o.fase_consolidada ?? null,
-                  score: o.qualidade_score ?? 50,
-                  titulo: `${o.endereco_logradouro}${o.endereco_numero ? `, ${o.endereco_numero}` : ''}`,
-                  distancia_km: o.distancia_km,
-                }))}
-                onMarkerClick={(id) => {
-                  const obras = document.querySelector(`[data-obra-id="${id}"]`)
-                  obras?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }}
-                className="h-64"
-              />
-            ) : (
-              <div className="h-64 flex items-center justify-center bg-[#EEF1F2]">
-                {geoLoading ? (
-                  <div className="text-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
-                    <p className="text-xs text-muted-foreground mt-2">Buscando localizacao...</p>
-                  </div>
-                ) : geoError ? (
-                  <div className="text-center px-4">
-                    <MapPin className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-xs text-muted-foreground">{geoError}</p>
-                    <Button size="sm" variant="outline" onClick={buscarLocalizacao} className="mt-2">
-                      Tentar novamente
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <Crosshair className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-xs text-muted-foreground">Clique em "buscar localizacao" para ver o mapa</p>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="absolute bottom-2 left-2 flex gap-3 text-xs bg-white/80 px-2 py-1 rounded">
-              <div className="flex items-center gap-1">
-                <div className="h-2 w-2 rounded-full bg-[#D9541F]"/>
-                <span className="text-muted-foreground">Alto</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="h-2 w-2 rounded-full bg-[#D97706]"/>
-                <span className="text-muted-foreground">Medio</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="h-2 w-2 rounded-full bg-[#2E6F8E]"/>
-                <span className="text-muted-foreground">Normal</span>
+      {/* Painel de filtros expandidos */}
+      {mostrarFiltros && (
+        <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="flex flex-wrap gap-4">
+            {/* Fase */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-500">Fase da Obra</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setFiltroFase(null)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${!filtroFase ? 'bg-primary text-white' : 'bg-white border border-gray-200 hover:bg-gray-100'}`}
+                >
+                  Todas
+                </button>
+                {Object.entries(FASE_CONFIG).map(([key, config]) => (
+                  <button
+                    key={key}
+                    onClick={() => setFiltroFase(filtroFase === key ? null : key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${filtroFase === key ? `${config.bg} ${config.text} ring-2 ring-offset-1 ring-primary` : 'bg-white border border-gray-200 hover:bg-gray-100'}`}
+                  >
+                    {config.icon} {config.label}
+                  </button>
+                ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Lista */}
-        <div className="space-y-3">
-          {obrasFiltradas.length === 0 ? (
-            <Card className="border-border/50">
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <MapPin className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                <p className="text-muted-foreground">
-                  {obras.length === 0
-                    ? 'Nenhuma obra detectada ainda. As obras aparecem aqui quando o radar encontra alvarás e CNOs.'
-                    : 'Nenhuma obra encontrada com os filtros.'}
+            {/* Score */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-500">Potencial</label>
+              <div className="flex gap-2">
+                {[
+                  { key: 'todos', label: 'Todos', color: 'gray' },
+                  { key: 'alto', label: 'Alto (>80)', color: 'orange' },
+                  { key: 'medio', label: 'Médio (60-80)', color: 'amber' },
+                ].map(({ key, label, color }) => (
+                  <button
+                    key={key}
+                    onClick={() => setFiltroScore(key as any)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${filtroScore === key ? `bg-${color}-100 text-${color}-700 border border-${color}-300` : 'bg-white border border-gray-200 hover:bg-gray-100'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Cidade */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-500">Cidade</label>
+              <select
+                className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm"
+                value={filtroCidade ?? ''}
+                onChange={(e) => setFiltroCidade(e.target.value || null)}
+              >
+                <option value="">Todas</option>
+                {cidades.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Raio */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-500">Raio</label>
+              <div className="flex gap-1">
+                {RAIO_OPCOES.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRaioKm(r)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${raioKm === r ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-white border border-gray-200 hover:bg-gray-100'}`}
+                  >
+                    {r}km
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mapa + Lista */}
+      <div className={`grid gap-6 ${showMap ? 'lg:grid-cols-5' : 'grid-cols-1'}`}>
+        {/* Mapa */}
+        {showMap && (
+          <div className={`lg:col-span-2 ${showMap ? '' : 'hidden'}`}>
+            <Card className="border-gray-200 overflow-hidden h-full">
+              <CardContent className="p-3 h-full">
+                {geoPos ? (
+                  <RadarMap
+                    center={geoPos}
+                    markers={obrasProcessadas.map((o) => ({
+                      id: o.id,
+                      lat: o.lat ?? 0,
+                      lng: o.lng ?? 0,
+                      fase: o.fase_atual ?? o.fase_consolidada ?? null,
+                      score: o.qualidade_score ?? 50,
+                      titulo: `${o.endereco_logradouro}${o.endereco_numero ? `, ${o.endereco_numero}` : ''}`,
+                      distancia_km: o.distancia_km,
+                    }))}
+                    onMarkerClick={(id) => {
+                      const el = document.querySelector(`[data-obra-id="${id}"]`)
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      el?.classList.add('ring-2', 'ring-primary', 'ring-offset-2')
+                      setTimeout(() => el?.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 2000)
+                    }}
+                    className="h-[400px] lg:h-full min-h-[300px]"
+                  />
+                ) : (
+                  <div className="h-full min-h-[300px] flex items-center justify-center bg-gray-100 rounded-lg">
+                    <div className="text-center">
+                      <MapPin className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">Mapa indisponível</p>
+                      <Button size="sm" variant="outline" onClick={buscarLocalizacao} className="mt-2">
+                        <Crosshair className="h-4 w-4 mr-1" />
+                        Buscar localização
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Legenda do mapa */}
+                <div className="flex gap-4 mt-2 text-xs bg-white/80 px-2 py-1 rounded justify-center">
+                  {[
+                    { color: '#D9541F', label: 'Alto' },
+                    { color: '#D97706', label: 'Médio' },
+                    { color: '#2E6F8E', label: 'Normal' },
+                  ].map(({ color, label }) => (
+                    <div key={label} className="flex items-center gap-1">
+                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                      <span className="text-gray-600">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Lista de Obras */}
+        <div className={`${showMap ? 'lg:col-span-3' : 'col-span-1'}`}>
+          {obrasProcessadas.length === 0 ? (
+            <Card className="border-gray-200">
+              <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                <Building className="h-16 w-16 text-gray-300 mb-4" />
+                <p className="text-lg font-medium text-gray-600 mb-2">
+                  {obras.length === 0 ? 'Nenhuma obra encontrada' : 'Nenhum resultado para os filtros'}
                 </p>
+                <p className="text-sm text-gray-400 mb-4 max-w-md">
+                  {obras.length === 0
+                    ? 'As obras aparecem aqui quando o radar detecta alvarás e CNOs na sua região.'
+                    : 'Tente ajustar os filtros ou buscar por outros termos.'}
+                </p>
+                {obras.length > 0 && (
+                  <Button variant="outline" onClick={clearFilters}>
+                    Limpar filtros
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
-            paginatedObras.map((obra) => (
-              <Link href={`/dashboard/radar/${obra.id}`} key={obra.id} data-obra-id={obra.id} className="block">
-              <Card className="border-border/50 hover:shadow-md hover:border-primary/40 cursor-pointer transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0 ${
-                        (obra.qualidade_score ?? 50) > 80 ? 'bg-primary/10' : 'bg-secondary/10'
-                      }`}>
-                        <Building className={`h-4 w-4 ${
-                          (obra.qualidade_score ?? 50) > 80 ? 'text-primary' : 'text-secondary'
-                        }`} />
+            <div className="space-y-3">
+              {paginatedObras.map((obra) => (
+                <Link href={`/dashboard/radar/${obra.id}`} key={obra.id} data-obra-id={obra.id} className="block">
+                  <Card className="border-gray-200 hover:shadow-md hover:border-primary/40 cursor-pointer transition-all bg-white">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        {/* Score grande */}
+                        <div className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                          <span className="text-2xl font-black" style={{
+                            color: (obra.qualidade_score ?? 50) > 80 ? '#D9541F' : (obra.qualidade_score ?? 50) > 60 ? '#D97706' : '#2E6F8E'
+                          }}>
+                            {obra.qualidade_score ?? 50}
+                          </span>
+                          <span className="text-[10px] text-gray-400 -mt-1">score</span>
+                        </div>
+
+                        {/* Info principal */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 truncate">
+                                {obra.endereco_logradouro}
+                                {obra.endereco_numero && <span className="text-gray-500">, {obra.endereco_numero}</span>}
+                              </p>
+                              <p className="text-sm text-gray-500 truncate">
+                                {obra.endereco_bairro && `${obra.endereco_bairro} · `}
+                                {obra.endereco_cidade} / {obra.endereco_uf}
+                              </p>
+                            </div>
+                            <FaseBadge fase={obra.fase_atual} />
+                          </div>
+
+                          {/* Tags de info rápida */}
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <Badge variant="outline" className="text-xs">
+                              {obra.porte}
+                            </Badge>
+                            {obra.valor_estimado && (
+                              <Badge variant="outline" className="text-xs text-green-700 border-green-200 bg-green-50">
+                                💰 R$ {obra.valor_estimado.toLocaleString('pt-BR')}
+                              </Badge>
+                            )}
+                            {obra.responsavel_nome && (
+                              <Badge variant="outline" className="text-xs">
+                                👤 {obra.responsavel_nome.split(' ')[0]}
+                              </Badge>
+                            )}
+                            {obra.distancia_km && (
+                              <span className="text-xs text-gray-400 flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {obra.distancia_km.toFixed(1)} km
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Indicador visual de potencial */}
+                        <div className="flex-shrink-0">
+                          <div
+                            className="w-2 h-12 rounded-full"
+                            style={{
+                              background: (obra.qualidade_score ?? 50) > 80
+                                ? 'linear-gradient(to bottom, #D9541F, #FF6B35)'
+                                : (obra.qualidade_score ?? 50) > 60
+                                  ? 'linear-gradient(to bottom, #D97706, #FBBF24)'
+                                  : 'linear-gradient(to bottom, #2E6F8E, #6B9AC4)'
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm text-dark truncate">
-                          {obra.endereco_logradouro}{obra.endereco_numero ? `, ${obra.endereco_numero}` : ''}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {obra.endereco_bairro ? `${obra.endereco_bairro} · ` : ''}
-                          {obra.endereco_cidade} / {obra.endereco_uf}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1 capitalize">
-                          {obra.fonte.replace('_', ' ')} · {obra.porte}
-                          {obra.valor_estimado && (
-                            <> · R$ {obra.valor_estimado.toLocaleString('pt-BR')}</>
-                          )}
-                        </p>
-                        {(obra as any).total_marcacoes_globais > 0 && (
-                          <p className="text-xs mt-1.5 inline-flex items-center gap-1 text-primary">
-                            <ThumbsUp className="h-3 w-3" />
-                            <strong>{(obra as any).total_confirmacoes_globais}</strong>
-                            <span className="text-muted-foreground">confirmações · {(obra as any).total_marcacoes_globais} marcações</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                        obra.fase_atual ? FASE_COLORS[obra.fase_atual]?.bg : FASE_NAO_IDENTIFICADA.bg
-                      } ${obra.fase_atual ? FASE_COLORS[obra.fase_atual]?.text : FASE_NAO_IDENTIFICADA.text}`}>
-                        {obra.fase_atual ? obra.fase_atual : 'Não identificada'}
-                      </span>
-                      <span className="text-xs font-semibold" style={{
-                        color: (obra.qualidade_score ?? 50) > 80 ? '#D9541F' : (obra.qualidade_score ?? 50) > 60 ? '#D97706' : '#2E6F8E'
-                      }}>
-                        {obra.qualidade_score ?? 50}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              </Link>
-            ))
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
           )}
-          {/* Pagination */}
-          {obrasFiltradas.length > PAGE_SIZE && (
-            <div className="flex items-center justify-between pt-2">
-              <p className="text-xs text-muted-foreground">
-                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, obrasFiltradas.length)} de {obrasFiltradas.length} obras
+
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 mt-4 border-t">
+              <p className="text-sm text-gray-500">
+                Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, obrasProcessadas.length)} de {obrasProcessadas.length}
               </p>
-              <div className="flex gap-1">
+              <div className="flex gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -553,7 +780,7 @@ export default function RadarPage() {
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  Proxima
+                  Próxima
                 </Button>
               </div>
             </div>
