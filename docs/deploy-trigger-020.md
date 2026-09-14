@@ -11,7 +11,7 @@ npx supabase link --project-ref <SEU_PROJECT_REF>
 
 (Ref visivel em https://supabase.com/dashboard → Settings → General → Reference ID.)
 
-## Passo 1: Aplicar migration 020
+## Passo 1: Aplicar migrations 020 e 021
 
 Opcao A - via CLI (recomendado):
 
@@ -19,10 +19,12 @@ Opcao A - via CLI (recomendado):
 npx supabase db push
 ```
 
+Aplica 020 (tabela + trigger) e 021 (RLS, RPCs atomicas, view) atomicamente.
+
 Opcao B - via SQL editor:
 1. Abra https://supabase.com/dashboard/project/<REF>/sql
-2. Copie o conteudo de `supabase/migrations/020_enrich_cnpj_queue.sql`
-3. Cole e execute (Run).
+2. Copie o conteudo de `supabase/migrations/020_enrich_cnpj_queue.sql` e execute
+3. Em nova query, copie `supabase/migrations/021_enrich_cnpj_queue_hardening.sql` e execute
 
 ## Passo 2: Deploy da Edge Function atualizada
 
@@ -53,20 +55,39 @@ console.log(r.data ?? r.error)
 ## Verificacao pos-deploy (apos 1h)
 
 ```sql
--- Rodar no SQL editor do Supabase
-SELECT * FROM get_enrich_cnpj_stats();
--- Esperado: enriquecidos_publica/enriquecidos_brasilapi crescendo
+-- Snapshot do estado da fila (visao nova da migration 021)
+SELECT * FROM v_enrich_queue_status;
+-- Esperado: pendentes_novos >= 0, em_retry 0, com_falhas_estoque 0, presos_sem_progresso 0
 ```
 
 ```sql
--- Fila deve estar vazia ou crescendo devagar (so CNPJs novos)
-SELECT COUNT(*) AS na_fila FROM enrich_cnpj_queue;
+-- Estado global do enriquecimento
+SELECT * FROM get_enrich_cnpj_stats();
+-- Esperado: enriquecidos_publica/enriquecidos_brasilapi crescendo
 ```
 
 ```sql
 -- Cron jobs ativos
 SELECT jobname, schedule, active FROM cron.job ORDER BY jobname;
 -- Esperado: enrich-cnpj-diario (30 2 * * *) E enrich-cnpj-queue-15min (7,22,37,52 * * * *)
+```
+
+## Teste das RPCs (opcional, apos deploy)
+
+```sql
+-- Testar claim atomico: deve retornar fila vazia ou rows
+SELECT * FROM claim_cnpj_queue(5);
+
+-- Testar increment_attempts: substitua por um tenant_id e cnpj reais da sua base
+SELECT increment_attempts(
+  '<TENANT_ID_REAL>'::uuid,
+  '00000000000000',
+  'teste manual'
+);
+-- Esperado: retorna 1 (apos 1a tentativa), 2 (apos 2a), ..., 5 (apos 5a - marca nao_encontrado)
+
+-- Ver fila apos
+SELECT * FROM v_enrich_queue_status;
 ```
 
 ## Rollback
