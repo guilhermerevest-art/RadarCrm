@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ExportCSVButton } from '@/components/crm/ExportCSVButton'
 
 type Lead = {
   id: string
@@ -194,6 +195,7 @@ export default function CrmPage() {
             <option value="convertido">Convertido</option>
             <option value="descarte">Descarte</option>
           </select>
+          <ExportCSVButton leads={leadsFiltrados} />
         </div>
       </div>
 
