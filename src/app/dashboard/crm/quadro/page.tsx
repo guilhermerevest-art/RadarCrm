@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import DealModal from './deal-modal'
+import { MotivoPerdaModal } from '@/components/crm/MotivoPerdaModal'
 
 // TIPOS COMPARTILHADOS CRM
 import type { PipelineEstagio, Responsavel, Deal } from '@/lib/crm-types'
@@ -69,6 +70,11 @@ export default function DealsKanbanPage() {
   // Modal
   const [modalOpen, setModalOpen] = useState(false)
   const [dealEditando, setDealEditando] = useState<Deal | null>(null)
+
+  // Motivo perda modal
+  const [perdaModal, setPerdaModal] = useState<{ dealId: string; novoEstagio: string } | null>(
+    null
+  )
 
   // Carregar dados
   useEffect(() => {
@@ -174,8 +180,14 @@ export default function DealsKanbanPage() {
       return
     }
 
-    // Encontrar estagio para pegar probabilidade
-    const estagioInfo = estagios.find(e => e.nome === novoEstagio)
+    // Se movendo para "perdido", abrir modal de motivo
+    if (novoEstagio === 'perdido') {
+      setPerdaModal({ dealId: deal.id, novoEstagio })
+      setDraggedId(null)
+      return
+    }
+
+    const estagioInfo = estagios.find(es => es.nome === novoEstagio)
     const novaProbabilidade = estagioInfo?.probabilidade_padrao ?? deal.probabilidade
 
     // Atualizar local (otimista)
@@ -203,6 +215,37 @@ export default function DealsKanbanPage() {
     }
 
     setDraggedId(null)
+  }
+
+  async function confirmarPerda(motivo: string, observacao: string) {
+    if (!perdaModal) return
+    const deal = deals.find(d => d.id === perdaModal.dealId)
+    if (!deal) return
+
+    // Otimista
+    setDeals(prev =>
+      prev.map(d =>
+        d.id === perdaModal.dealId
+          ? { ...d, estagio: 'perdido', probabilidade: 0 }
+          : d
+      )
+    )
+
+    const { error } = await supabase
+      .from('crm_deals')
+      .update({
+        estagio: 'perdido',
+        probabilidade: 0,
+        motivo_perda: motivo,
+        observacao_perda: observacao || null,
+        data_fechamento: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', perdaModal.dealId)
+
+    if (error) throw error
+    toast({ title: 'Deal marcado como perdido' })
+    setPerdaModal(null)
   }
 
   // CRUD
@@ -425,6 +468,17 @@ export default function DealsKanbanPage() {
           tenantId={tenantId}
           responsaveis={responsaveis}
           estagios={estagios}
+        />
+      )}
+
+      {/* Motivo perda */}
+      {perdaModal && tenantId && (
+        <MotivoPerdaModal
+          open={true}
+          onClose={() => setPerdaModal(null)}
+          dealId={perdaModal.dealId}
+          tenantId={tenantId}
+          onConfirm={confirmarPerda}
         />
       )}
     </div>
