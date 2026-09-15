@@ -18,6 +18,7 @@ import {
   BarChart3,
   Zap,
   Calendar,
+  Upload,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -28,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ExportCSVButton } from '@/components/crm/ExportCSVButton'
+import { ImportLeadsModal } from '@/components/crm/ImportLeadsModal'
 
 type Lead = {
   id: string
@@ -66,7 +68,17 @@ export default function CrmPage() {
   const [filtroOrigem, setFiltroOrigem] = useState<Origem>('todos')
   const [filtroStatus, setFiltroStatus] = useState<Status>('todos')
   const [tenantId, setTenantId] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const supabase = createClient()
+
+  async function carregarLeads(tenantId: string) {
+    const { data } = await supabase
+      .from('crm_leads')
+      .select('*, tenant_users(nome)')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+    setLeads(data ?? [])
+  }
 
   useEffect(() => {
     async function load() {
@@ -81,14 +93,7 @@ export default function CrmPage() {
 
       if (!tu) return
       setTenantId(tu.tenant_id)
-
-      const { data } = await supabase
-        .from('crm_leads')
-        .select('*, tenant_users(nome)')
-        .eq('tenant_id', tu.tenant_id)
-        .order('created_at', { ascending: false })
-
-      setLeads(data ?? [])
+      await carregarLeads(tu.tenant_id)
       setLoading(false)
     }
     load()
@@ -157,6 +162,10 @@ export default function CrmPage() {
               Novo Lead
             </Button>
           </Link>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            Importar CSV
+          </Button>
         </div>
       </div>
 
@@ -274,6 +283,12 @@ export default function CrmPage() {
           ))}
         </div>
       )}
+
+      <ImportLeadsModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImportado={() => tenantId && carregarLeads(tenantId)}
+      />
     </div>
   )
 }
