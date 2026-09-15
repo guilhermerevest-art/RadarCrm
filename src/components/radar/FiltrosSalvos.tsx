@@ -36,16 +36,26 @@ export function FiltrosSalvos({ filtrosAtuais, onCarregar }: Props) {
 
   async function carregar() {
     setCarregando(true)
-    const { data } = await supabase
-      .from('radar_listas_prospeccao')
-      .select('id, nome, filtros, updated_at')
-      .order('updated_at', { ascending: false })
-    if (data) setListas(data as Lista[])
-    setCarregando(false)
+    try {
+      const { data, error } = await supabase
+        .from('radar_listas_prospeccao')
+        .select('id, nome, filtros, updated_at')
+        .order('updated_at', { ascending: false })
+
+      if (error) {
+        console.warn('[FiltrosSalvos] falha ao carregar listas:', error.message)
+        return
+      }
+      setListas((data as Lista[]) ?? [])
+    } catch (err) {
+      console.warn('[FiltrosSalvos] erro inesperado ao carregar:', err)
+    } finally {
+      setCarregando(false)
+    }
   }
 
   useEffect(() => {
-    carregar()
+    void carregar()
   }, [])
 
   async function salvar() {
