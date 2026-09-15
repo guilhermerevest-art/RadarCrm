@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { TagsInput } from '@/components/crm/TagsInput'
+import { TemplateMessageModal } from '@/components/crm/TemplateMessageModal'
 
 type Lead = {
   id: string
@@ -65,6 +66,7 @@ export default function LeadDetalhePage() {
   const [salvando, setSalvando] = useState(false)
   const [novaNota, setNovaNota] = useState('')
   const [tags, setTags] = useState<string[]>([])
+  const [templateModalOpen, setTemplateModalOpen] = useState(false)
   const [notas, setNotas] = useState<Array<{ id: string; texto: string; created_at: string }>>([])
   const [atividades, setAtividades] = useState<Array<{
     id: string
@@ -338,6 +340,14 @@ export default function LeadDetalhePage() {
                 Chat no Radar
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTemplateModalOpen(true)}
+            >
+              <MessageSquare className="h-4 w-4 mr-1" />
+              Enviar template
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -576,6 +586,17 @@ export default function LeadDetalhePage() {
           </Card>
         </div>
       </div>
+
+      <TemplateMessageModal
+        open={templateModalOpen}
+        onClose={() => setTemplateModalOpen(false)}
+        lead={{
+          nome: lead.nome,
+          empresa: lead.empresa,
+          telefone: lead.telefone,
+          cidade: lead.endereco_cidade,
+        }}
+      />
     </div>
   )
 }

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { CheckCircle2, Loader2, Shield, Bell, Users, Database, Key, Webhook } from 'lucide-react'
+import { CheckCircle2, Loader2, Shield, Bell, Users, Database, Key, Webhook, MessageSquare } from 'lucide-react'
 
 const CIDADES = [
   'Uberlândia', 'Uberaba', 'Araguari', 'Ituiutaba',
@@ -269,6 +269,35 @@ export default function ConfiguracaoPage() {
             </select>
             <Button>Convidar</Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Templates WhatsApp */}
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <MessageSquare className="h-5 w-5 text-primary" />
+            Templates WhatsApp
+          </CardTitle>
+          <CardDescription>
+            Mensagens reutilizáveis com variáveis (ex: {`{nome}`}, {`{empresa}`}).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <a
+            href="/dashboard/configuracao/templates"
+            className="flex items-center gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+          >
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <MessageSquare className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Gerenciar templates</p>
+              <p className="text-xs text-muted-foreground">
+                Crie e edite mensagens para enviar pelo CRM.
+              </p>
+            </div>
+          </a>
         </CardContent>
       </Card>
 
