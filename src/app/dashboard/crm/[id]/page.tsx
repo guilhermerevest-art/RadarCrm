@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
+import { TagsInput } from '@/components/crm/TagsInput'
 
 type Lead = {
   id: string
@@ -40,6 +41,7 @@ type Lead = {
   endereco_cidade?: string
   score_engajamento?: number
   observacoes?: string
+  tags?: string[]
   created_at: string
   updated_at?: string
 }
@@ -62,6 +64,7 @@ export default function LeadDetalhePage() {
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [novaNota, setNovaNota] = useState('')
+  const [tags, setTags] = useState<string[]>([])
   const [notas, setNotas] = useState<Array<{ id: string; texto: string; created_at: string }>>([])
   const [atividades, setAtividades] = useState<Array<{
     id: string
@@ -91,6 +94,7 @@ export default function LeadDetalhePage() {
         return
       }
       setLead(data)
+      setTags(data?.tags ?? [])
       setLoading(false)
 
       // Carrega notas do localStorage
@@ -124,6 +128,7 @@ export default function LeadDetalhePage() {
           endereco_cidade: lead.endereco_cidade,
           score_engajamento: lead.score_engajamento,
           observacoes: lead.observacoes,
+          tags,
           updated_at: new Date().toISOString(),
         })
         .eq('id', lead.id)
@@ -393,6 +398,10 @@ export default function LeadDetalhePage() {
                     ))}
                   </select>
                 </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Tags</label>
+                <TagsInput value={tags} onChange={setTags} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Observações</label>
